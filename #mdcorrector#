@@ -1,0 +1,116 @@
+#!/bin/bash
+map_editor=/mn/stornext/u3/hke/owl/quiet_svn/oslo/src/f90/map_editor/map_editor
+
+npipe=("map_npipe4v207_v1_030_0256_40arcmin_full.fits"
+"map_npipe4v207_v1_044_0256_40arcmin_full.fits"
+"map_npipe4v207_v1_070_0256_40arcmin_full.fits"
+"map_npipe4v205_v1_100_0256_40arcmin_full.fits"
+"map_npipe4v205_v1_143_0256_40arcmin_full.fits"
+"map_npipe4v205_v1_217_0256_40arcmin_full.fits"
+"map_npipe4v205_v1_353_0256_40arcmin_full.fits")
+
+npipenew=("map_npipe4v207_v1_030_0256_40arcmin_full_MDCOR2.fits"
+"map_npipe4v207_v1_044_0256_40arcmin_full_MDCOR2.fits"
+"map_npipe4v207_v1_070_0256_40arcmin_full_MDCOR2.fits"
+"map_npipe4v205_v1_100_0256_40arcmin_full_MDCOR2.fits"
+"map_npipe4v205_v1_143_0256_40arcmin_full_MDCOR2.fits"
+"map_npipe4v205_v1_217_0256_40arcmin_full_MDCOR2.fits"
+"map_npipe4v205_v1_353_0256_40arcmin_full_MDCOR2.fits")
+
+dx11=("map_dx11d_r2_bpc_030_0256_40arcmin_full.fits"
+"map_dx11d_r2_bpc_044_0256_40arcmin_full.fits"
+"map_dx11d_r2_bpc_070_0256_40arcmin_full.fits"
+"map_dx11d_r2_zbpcg_100_0256_40arcmin_full.fits"
+"map_dx11d_r2_zbpcg_143_0256_40arcmin_full.fits"
+"map_dx11d_r2_zbpcg_217_0256_40arcmin_full.fits"
+"map_dx11d_r2_zbpcg_353_0256_40arcmin_full.fits"
+"map_dx11d_r2_zc_545_0256_40arcmin_full.fits"
+"map_dx11d_r2_zc_857_0256_40arcmin_full.fits")
+
+dx12=("../dx12/map_dx12_bpc_v2_030_0256_40arcmin_full.fits"
+"../dx12/map_dx12_bpc_v2_044_0256_40arcmin_full.fits"
+"../dx12/map_dx12_bpc_v2_070_0256_40arcmin_full.fits"
+"../dx12/map_dx12_v2_100_0256_40arcmin_full.fits"
+"../dx12/map_dx12_v2_143_0256_40arcmin_full.fits"
+"../dx12/map_dx12_v2_217_0256_40arcmin_full.fits"
+"../dx12/map_dx12_v2_353_0256_40arcmin_full.fits"
+"../dx12/map_dx12_v2_545_0256_40arcmin_full.fits"
+"../dx12/map_dx12_v2_857_0256_40arcmin_full.fits")
+
+new=("map_dx11d_r2_bpc_030_0256_40arcmin_full_MDCOR.fits"
+"map_dx11d_r2_bpc_044_0256_40arcmin_full_MDCOR.fits"
+"map_dx11d_r2_bpc_070_0256_40arcmin_full_MDCOR.fits"
+"map_dx11d_r2_zbpcg_100_0256_40arcmin_full_MDCOR.fits"
+"map_dx11d_r2_zbpcg_143_0256_40arcmin_full_MDCOR.fits"
+"map_dx11d_r2_zbpcg_217_0256_40arcmin_full_MDCOR.fits"
+"map_dx11d_r2_zbpcg_353_0256_40arcmin_full_MDCOR.fits"
+"map_dx11d_r2_zc_545_0256_40arcmin_full_MDCOR.fits"
+"map_dx11d_r2_zc_857_0256_40arcmin_full_MDCOR.fits")
+
+dx12hires=("LFI_SkyMap_030_1024_R3.00_bpcorrected_full.fits"
+"LFI_SkyMap_044_1024_R3.00_bpcorrected_full.fits"
+"LFI_SkyMap_070_1024_R3.00_bpcorrected_full.fits"
+"100GHz_ful.all_ful.RD12_RC4.P.fits"
+"143GHz_ful.all_ful.RD12_RC4.P.fits"
+"217GHz_ful.all_ful.RD12_RC4.P.fits"
+"353GHz_ful.all_ful.RD12_RC4.P.fits")
+
+npipehires=("npipe4v207_030_map.fits"
+"npipe4v207_044_map.fits"
+"npipe4v207_070_map.fits"
+"npipe4v205_100_map.fits"
+"npipe4v205_143_map.fits"
+"npipe4v205_217_map.fits"
+"npipe4v205_353_map.fits")
+
+npipehiresnew=("npipe4v207_030_map_MDCOR1.fits"
+"npipe4v207_044_map_MDCOR1.fits"
+"npipe4v207_070_map_MDCOR1.fits"
+"npipe4v205_100_map_MDCOR1.fits"
+"npipe4v205_143_map_MDCOR1.fits"
+"npipe4v205_217_map_MDCOR1.fits"
+"npipe4v205_353_map_MDCOR1.fits")
+
+masks=("commander_dx12_mask_n1024_likelihood_v2.fits"
+"commander_dx12_mask_n2048_likelihood_v2.fits")
+
+for i in {0..6};
+do
+    echo "----------------------------------------------------------------------------------"
+    echo "$i" "${npipehires[$i]}" "${dx12hires[$i]}"
+    echo "----------------------------------------------------------------------------------"
+    
+    $map_editor subtract ${npipehires[$i]} ${dx12hires[$i]} diff.fits
+    
+    if [ $i -lt 3 ];
+    then
+	j=0
+	rng=250
+    else 
+	j=1
+	rng=250
+    fi
+ 
+    $map_editor subtract_mono_dipole diff.fits ${masks[$j]} correct.fits
+    $map_editor subtract diff.fits correct.fits mono.fits
+    $map_editor subtract ${npipehires[$i]} mono.fits ${npipehiresnew[$i]}
+    $map_editor scale ${npipehiresnew[$i]} ${npipehiresnew[$i]} 1e6
+    map2png ${npipehiresnew[$i]} -bar -range 250
+    rm diff.fits
+    rm correct.fits
+    rm mono.fits
+done
+
+
+
+
+#map_editor subtract map_dx11d_r2_zbpcg_143_0256_40arcmin_full.fits ../dx12/map_dx12_v2_143_0256_40arcmin_full.fits diff.fits
+#map_editor subtract_mono_dipole diff.fits commander_dx12_mask_n0256_likelihood_v2.fits correct.fits
+#map_editor subtract diff.fits correct.fits mono.fits
+#map_editor subtract map_dx11d_r2_zbpcg_143_0256_40arcmin_full.fits mono.fits test.fits
+
+#map2png diff.fits -bar -min -5 -max 5
+#map2png correct.fits -bar -min -5 -max 5
+#map2png mono.fits -bar
+#map2png test.fits -bar
+

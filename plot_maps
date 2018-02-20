@@ -1,0 +1,40 @@
+#!/bin/bash
+
+echo "Plotting amplitudes"
+map2png dust_c0001_k$1.fits -bar -max 1000
+map2png synch_c0001_k$1.fits -bar -max 1000 -min 0
+#map2png ame1_c0001_k$1.fits -bar -max 300
+#map2png ame2_c0001_k$1.fits -bar -max 300
+map2png co_c0001_k$1.fits -bar -max 2 -min 0
+#map2png co10_c0001_k$1.fits -bar -max 2 -min 0
+#map2png co21_c0001_k$1.fits -bar -max 2 -min 0
+#map2png co32_c0001_k$1.fits -bar -max 2 -min 0
+#map2png hcn_c0001_k$1.fits -bar -max 1 -min 0
+map2png cmb_c0001_k$1.fits -bar -range 250
+map2png cmb_Cl_c0001_k$1.fits -bar -range 250
+#map2png sz_c0001_k$1.fits sz_c0001_k${1}.png -bar -min 0 -max 1e-6
+#patch2img -lon 270 -lat 80 -size 40 -res 4 sz_c0001_k$1.fits -grid 10 -min 0 -max 5e-6
+
+echo "Plotting indices"
+map2png dust_beta_c0001_k$1.fits  -bar -min 1.3 -max 2.0
+map2png dust_Td_c0001_k$1.fits  -bar -min 14 -max 30
+#map2png dust_Td_c0001_k$1_nosmooth.fits  -bar -min 14 -max 30
+map2png synch_beta_c0001_k$1.fits  -bar -min -4.0 -max -1.5
+#map2png ame1_nup_c0001_k$1.fits  -bar -min 17 -max 23
+#map2png ame2_nup_c0001_k$1.fits  -bar -min 15 -max 40
+#map2png ff_EM_c0001_k$1.fits  -bar -min 0 -max 100
+#map2png ff_T_e_c0001_k$1.fits  -bar -min 5000 -max 8000
+
+echo "Plotting chisq"
+map2png chisq_c0001_k$1.fits chisq_k$1.png -bar -max 18 -min 0
+
+#echo "Plotting residuals"
+map2png -bar -range 10 residual_030_c01_k$1.fits
+map2png -bar -range 10 residual_044_c01_k$1.fits
+map2png -bar -range 10 residual_070_c01_k$1.fits
+map2png -bar -range 10 residual_100_c01_k$1.fits
+map2png -bar -range 10 residual_143_c01_k$1.fits
+map2png -bar -range 10 residual_217_c01_k$1.fits
+map2png -bar -range 10 residual_353_c01_k$1.fits
+map2png -bar -range 1e-2 residual_545_c01_k$1.fits
+map2png -bar -range 1e-2 residual_857_c01_k$1.fits

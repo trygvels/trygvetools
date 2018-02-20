@@ -1,0 +1,216 @@
+#!/bin/bash
+
+if [[ ! $1 ]] || [[ ! $2 ]] || [[ ! $3 ]] ; then
+    echo "##############################################################################################################"
+    echo "You are doing it wrong!"
+    echo "mac [mapname (ex. npipe or dx12)] [version to base upon (ex. 5.5)] [New version number (ex. 6978123871276.3)]"
+    echo "##############################################################################################################"
+    exit
+fi
+
+#New chain folder
+mkdir chains_ml_"$1"_v"$3"
+
+# -------- Edit chains folder and input gain file --------
+oldparam=param_ml_tls_"$1"_v"$2".txt
+inparam=param_ml_tls_"$1"_v"$3".txt
+cp $oldparam $inparam
+
+sed -i "s/chains_ml_"$1"_v"$2"/chains_ml_"$1"_v"$3"/g" $inparam
+
+#screen -S "v$3"
+while :
+do
+    clear
+        # display menu
+
+
+    echo $'                        |'
+    echo $'                        |'
+    echo $'                        |'
+    echo $'                |       |'
+    echo $'                |      ---'
+    echo $'               ---     \'-\''
+echo $'               \'-\'  ____|_____'
+echo $'            ____|__/    |    /'
+echo $'           /    | /     |   /'
+echo $'          /     |(      |  ('
+echo $'         (      | \\     |   \\'
+echo $'          \\     |  \\____|____\\   /|'
+echo $'          /\\____|___`---.----` .\' |'
+echo $'       .-\'/      |  \\    |__.--\'    \\'
+echo $'     .\'/ (       |   \\   |.          \\'
+echo $'  _ /_/   \\      |    \\  | `.         \\'
+echo $'   `-.\'    \\.--._|.---`  |   `-._______\\'
+echo $'      ``-.-------\'-------\'------------/'
+echo $'          `\'._______________________.\'      '
+echo -n $'\e[94m' # Blue
+echo "###########################################"
+echo "                Welcome to "
+echo "            MASTER & COMMANDER"
+echo "      a commander initialization tool"
+echo "        for Trygves master thesis"
+echo "###########################################"
+echo -e $'\e[0m' # Reset
+echo "-------------------------------------------"
+echo "           M A I N - M E N U"
+echo "-------------------------------------------"
+echo "   Creating param_ml_tls_"$1"_v"$3".txt"
+echo "   Based on param_ml_tls_"$1"_v"$2".txt"
+echo "..........................................."
+
+if [[ $gain857 ]]; then
+echo "1. * Gain changed to 545: $gain545, 857: $gain857."
+else
+echo "1. Modify input gain."
+fi
+
+if [[ $gibbsiter ]]; then
+echo "2. * Number of iterations changed to $gibbsiter."
+else
+echo "2. Change number of gibbs iterations"
+fi
+
+if [[ $procs ]]; then
+echo "3. * Number of processors changed to $procs."
+else
+echo "3. Change number of processors per band."
+fi
+echo "4. Change priors."
+if [[ $dusttemp ]]; then
+echo "    a. * Dust temp = $dusttemp"
+else
+echo "    a. Change dust temp."
+fi
+
+if [[ $synchbeta ]]; then
+echo "    b. * Synch beta = $synchbeta"
+else
+echo "    b. Change synch beta."
+fi
+if [[ $co217 ]]; then
+echo "    c. * CO 217 = $co217"
+else
+echo "    c. Change 217 CO."
+fi
+if [[ $co353 ]]; then
+echo "    d. * CO 353 = $co353"
+else
+echo "    d. Change 353 CO."
+fi
+if [[ $cont ]]; then
+echo "5. * Starting from sample $cont"
+else
+echo "5. Continue a previous run."
+fi
+
+echo "6. List input maps."
+echo "7. Read parameter file."
+echo "8. Run COMMANDER."
+echo "9. Exit"
+        # get input from the user
+read -p "Enter your choice [ 1 - 9 ] " choice
+echo "..........................................."
+        # make decision using case..in..esac
+case $choice in
+1) # -------- Modify gain --------
+sed -i "s/gain_init_dx12_n0256_40arcmin_ik102_v"$2"/gain_init_dx12_n0256_40arcmin_ik102_v"$3"/g" $inparam
+
+newgain=gain_init_dx12_n0256_40arcmin_ik102_v"$3".dat
+read -p "545 GHz gain: " gain545
+read -p "857 GHz gain: " gain857
+cat > $newgain <<DELIM
+#    Sample    030           044           070           100           143           217           353           545           857
+  1000      1.000000      1.000000      1.000000      1.000000      1.000000      1.000000      1.000000      $gain545      $gain857
+DELIM
+
+;;
+2) # ------------ Modify iterations ------6-------
+read -p "Number of Gibbs iterations: " gibbsiter
+sed -i 's,^\(NUM_GIBBS_ITER[ ]*= \).*,\1'$gibbsiter' \# Length of one Markov chain,g' $inparam
+;;
+3) # ------------ Modify number of processors ------
+read -p "Number of processors per band: " numproc
+procs=$((9 * $numproc))
+echo "Total number of processors needed: " "$procs"
+sed -i 's,^\(NUM_PROC_PER_BAND[ ]*= \).*,\1'$numproc' \# Number of processors per band,g' $inparam
+read -p "Press [Enter] key to continue..." readEnterKey
+;;
+4)
+echo "Please choose 4a-d in main menu."
+read -p "Press [Enter] key to continue..." readEnterKey
+;;
+4a) # ------------- Change priors -----------
+sed -n -e "s/^\(DUST_TEMP_PRIOR_GAUSSIAN_STDDEV01\)/\1/p" $inparam
+read -p "New dust temp prior stddev: " dusttemp
+sed -i 's,^\(DUST_TEMP_PRIOR_GAUSSIAN_STDDEV01[ ]*= \).*,\1'$dusttemp',g' $inparam
+;;
+4b)
+sed -n -e "s/^\(BETA_PRIOR_GAUSSIAN_STDDEV02\)/\1/p" $inparam
+read -p "New synch beta prior stddev: " synchbeta
+sed -i 's,^\(BETA_PRIOR_GAUSSIAN_STDDEV02[ ]*= \).*,\1'$synchbeta',g' $inparam
+;;
+4c)
+sed -n -e "s/^\(CO_PRIOR_GAUSSIAN_STDDEV03_01\)/\1/p" $inparam
+read -p "New 217 CO prior stddev: " co217
+sed -i 's,^\(CO_PRIOR_GAUSSIAN_STDDEV03_01[ ]*= \).*,\1'$co217',g' $inparam
+;;
+4d)
+sed -n -e "s/^\(CO_PRIOR_GAUSSIAN_STDDEV03_02\)/\1/p" $inparam
+read -p "New 353 CO prior stddev: " co353
+sed -i 's,^\(CO_PRIOR_GAUSSIAN_STDDEV03_02[ ]*= \).*,\1'$co353',g' $inparam
+;;
+5) # -------- Continue Previous run ---------
+read -p "Continue from sample number (#####):" cont
+
+  sed -i "s,^\(INIT_INDEX_MAP01_01[ ]*= \).*,\1chains_ml_"$1"_v"$2"/dust_beta_c0001_k"$cont".fits,g" $inparam #Dust beta
+  sed -i "s,^\(INIT_INDEX_MAP01_02[ ]*= \).*,\1chains_ml_"$1"_v"$2"/dust_Td_c0001_k"$cont".fits,g" $inparam #Dust Td
+  sed -i "s,^\(INITIAL_AMPLITUDE_MAP01[ ]*= \).*,\1chains_ml_"$1"_v"$2"/dust_c0001_k"$cont".fits,g" $inparam #Dust
+
+  sed -i "s,^\(INIT_INDEX_MAP02_01[ ]*= \).*,\1chains_ml_"$1"_v"$2"/synch_beta_c0001_k"$cont".fits,g" $inparam #synch beta
+  sed -i "s,^\(INITIAL_AMPLITUDE_MAP02[ ]*= \).*,\1chains_ml_"$1"_v"$2"/synch_c0001_k"$cont".fits,g" $inparam #synch
+
+  sed -i "s,^\(INITIAL_AMPLITUDE_MAP03[ ]*= \).*,\1chains_ml_"$1"_v"$2"/co_c0001_k"$cont".fits,g" $inparam #CO
+  sed -i "s,^\(INIT_INDEX_MAP03_01[ ]*= \).*,\1chains_ml_"$1"_v"$2"/co_217_c0001_k"$cont".fits,g" $inparam #co 217
+  sed -i "s,^\(INIT_INDEX_MAP03_02[ ]*= \).*,\1chains_ml_"$1"_v"$2"/co_353_c0001_k"$cont".fits,g" $inparam #co 353
+
+  sed -i "s,^\(INITIAL_AMPLITUDE_MAP04[ ]*= \).*,\1chains_ml_"$1"_v"$2"/cmb_c0001_k"$cont".fits,g" $inparam #CMB
+
+;;
+6) #-------- List all input maps ---------
+echo "Input maps in $inparam"
+for i in {1..9};
+do
+sed -n -e "s/^.*\(MAP0"$i"_0001\)/\1/p" $inparam
+done
+read -p "Press [Enter] key to continue..." readEnterKey
+more $inparam
+;;
+7) #--------- Read parameter file ---------
+more $inparam
+;;
+8) # -------- RUN COMMANDER ---------
+if [[ $numproc ]]; then
+read -p "Run commander on $procs processors, GO?" readEnterKey
+else
+echo "Line in param_ml_tls_"$1"_v"$2".txt: "
+sed '18q;d' param_ml_tls_"$1"_v"$2".txt
+read -p "Wanted number of processors per band: " numproc
+procs=$((9 * $numproc))
+read -p "Run COMMANDER on $procs processors, GO?" readEnterKey
+fi
+cp param_ml_tls_"$1"_v"$3".txt chains_ml_"$1"_v"$3"/
+mpirun -n "$procs" /uio/hume/student-u68/trygvels/master/Commander/commander1/src/commander/commander param_ml_tls_"$1"_v"$3".txt 2>&1 | tee chains_ml_"$1"_v"$3"/slurm.txt
+  ;;
+
+9) #--- exit ---
+echo "Bye!"
+exit 0
+;;
+*)
+echo "Error: Invalid option..."
+read -p "Press [Enter] key to continue..." readEnterKey
+;;
+esac
+
+done
