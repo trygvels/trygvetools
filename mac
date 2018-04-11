@@ -17,6 +17,7 @@ else
 fi
 
 show_menu(){
+    clear
     echo -e "\033[33m"
     echo $'                         \e[38;5;94m|'
     echo $'                         |'
@@ -71,15 +72,14 @@ show_menu(){
       show_menu;
     else
       case $opt in
-      1) # ------------- See previous runs -----------
-      clear
+      1) clear; # ------------- See previous runs -----------
       option_picked "Option 1 Picked"
       sub_menu1;
       ;;
 
-      2) # ------------- Initialize COMMANDER -----------
-      clear;
-      option_picked "Option 2 Picked";
+      2) clear; # ------------- Initialize COMMANDER -----------
+      option_picked "Initialize COMMANDER";
+      ls -d chains*/
       #read -p "Map name: [ex. npipe]: " mapname
       echo "(If test, write test)"
       read -p "New version number [xx.xx]: " newver
@@ -90,7 +90,7 @@ show_menu(){
       # -------- Edit chains folder and input gain file --------
       oldparam=param_ml_tls_"$mapname"_v"$oldver".txt
       inparam=param_ml_tls_"$mapname"_v"$newver".txt
-      cp $oldparam $inparam
+      cp -n $oldparam $inparam
 
       sed -i "s/chains_ml_"$mapname"_v"$oldver"/chains_ml_"$mapname"_v"$newver"/g" $inparam
       sub_menu2;
@@ -113,7 +113,8 @@ show_menu(){
       x)exit;
       ;;
 
-      \n)
+
+      \n) clear;
       show_menu;
       ;;
 
@@ -141,9 +142,8 @@ sub_menu1(){
     echo "2) See fg_ind_mean-files."
     echo "3) See gain_init-files."
     echo "4) List all chains-directories."
-    echo "5) Register all chi-sqrd values."
-    echo "6) Read parameter files."
-    read -p "Enter your choice [ 1 - 6 ] " sub1
+    echo "5) Read parameter files."
+    read -p "Enter your choice [ 1 - 5] " sub1
   while [ sub1 != '' ]
   do
     if [[ $sub1 = "" ]]; then
@@ -151,14 +151,27 @@ sub_menu1(){
     else
 
       case $sub1 in
-        1)  # ------------- Show chainlog file -----------
+        1) clear; # ------------- Show chainlog file -----------
+        echo "Registering fg files"
+        chainfolders=chains_ml_"$mapname"_v*
+        D=$'\e'
+        for i in $chainfolders;
+        do
+          s="${i}r"  #Changed delimiter (sed wont work with / in string)
+          #result=$( sed '9q;d' "$i"/fg_ind_mean_no0001.dat )
+          result=$( tail -n 1 "$i"/fg_ind_mean_no0001.dat )
+          sed -i "s${D}.*${s}.*${D}${s}${result}${D}g" chainlog_"$mapname".txt
+
+        done
+        echo "fg_ind_mean values registered to chainlog_"$mapname".txt"
+
         more chainlog_"$mapname".txt
 
         read -p "Press [Enter] key to continue..." readEnterKey
         sub_menu1;
         ;;
 
-        2) # ------------- Show fg_ind_mean file -----------
+        2) clear;# ------------- Show fg_ind_mean file -----------
         echo "Displaying fg_ind_mean_no0001.dat"
         #read -p "Map name [ex. npipe]: " mapn
         read -p "Which version(s) [ex. 5.1 5.2]: " versions
@@ -180,7 +193,7 @@ sub_menu1(){
         sub_menu1;
         ;;
 
-        3) # ------------- Show gain_init file -----------
+        3) clear;# ------------- Show gain_init file -----------
         echo "Displaying gain_init_dx12_n0256_40arcmin_ik102_v?.dat"
         read -p "Which version(s) [ex. 5.1 5.2]: " versions
         for i in $versions;
@@ -191,32 +204,14 @@ sub_menu1(){
         sub_menu1;
         ;;
 
-        4) # ------------- List all chains directories -----------
+        4) clear;# ------------- List all chains directories -----------
         ls -d chains*/
         read -p "Press [Enter] key to continue..." readEnterKey
         sub_menu1;
 
         ;;
 
-        5) # ------------- Register all fg_ind_mean data -----------
-
-        chainfolders=chains_ml_"$mapname"_v*
-        D=$'\e'
-        for i in $chainfolders;
-        do
-          s="${i}r"  #Changed delimiter (sed wont work with / in string)
-          #result=$( sed '9q;d' "$i"/fg_ind_mean_no0001.dat )
-          result=$( tail -n 1 "$i"/fg_ind_mean_no0001.dat )
-          sed -i "s${D}.*${s}.*${D}${s}${result}${D}g" chainlog_"$mapname".txt
-
-        done
-        echo "fg_ind_mean values registered to chainlog_"$mapname".txt"
-        read -p "Press [Enter] key to continue..." readEnterKey
-        sub_menu1;
-
-        ;;
-
-        6) # ----------- Read parameter files -------------
+        5) # ----------- Read parameter files -------------
         read -p "Parameter file version number: " ver
         more chains_ml_"$mapname"_v"$ver"/param_ml_tls_"$mapname"_v"$ver".txt
         sub_menu1;
@@ -302,7 +297,9 @@ sub_menu2(){
     echo "6) Continue a previous run."
     fi
 
-    echo "7) List input maps."
+    echo "7) Modify input maps."
+    echo "    a) List input maps in parameter file."
+    echo "    b) Change input maps in parameter file."
     echo "8) Read parameter file."
     echo "9) Run COMMANDER."
     read -p "Enter your choice [ 1 - 9 ] " sub1
@@ -325,9 +322,9 @@ sub_menu2(){
       #    Sample    030           044           070           100           143           217           353           545           857
         1000      1.000000      1.000000      1.000000      1.000000      1.000000      1.000000      1.000000      $gain545      $gain857
 DELIM
-
+      sub_menu2;
       ;;
-      2) # ------------ Modify iterations ------6-------
+      2) # ------------ Modify iterations -------------
       sed -n -e "s/^\(NUM_GIBBS_ITER\)/\1/p" $inparam
       read -p "Number of Gibbs iterations: " gibbsiter
       if [[ $gibbsiter ]]; then
@@ -395,7 +392,6 @@ DELIM
       sub_menu2;
       ;;
       5a) # ------------- Change MD init -----------
-      clear
       echo "Change mono-dipole init file"
       echo "1. for 0"
       echo "2. for dx12 values"
@@ -412,48 +408,106 @@ DELIM
       sub_menu2;
       ;;
 
-      5b) # ------------- Do MD-correction -----------
-      mdcorrector
-      clear
-      read -p "Output map name extension [Your last input (ex. MDCOR)] " mdcor
+      5b) clear; # ------------- Do MD-correction -----------
+      mdcor="$(mdcorrector | tail -1)"
+      exit
       sub_menu2;
       ;;
 
 
       6) # -------- Continue Previous run ---------
+      read -p "Which run to base on? [ex. 5.5] " base
       read -p "Continue from sample number (#####):" cont
       if [[ $cont ]]; then
-        sed -i "s,^\(INIT_INDEX_MAP01_01[ ]*= \).*,\1chains_ml_"$mapname"_v"$oldver"/dust_beta_c0001_k"$cont".fits,g" $inparam #Dust beta
-        sed -i "s,^\(INIT_INDEX_MAP01_02[ ]*= \).*,\1chains_ml_"$mapname"_v"$oldver"/dust_Td_c0001_k"$cont".fits,g" $inparam #Dust Td
-        sed -i "s,^\(INITIAL_AMPLITUDE_MAP01[ ]*= \).*,\1chains_ml_"$mapname"_v"$oldver"/dust_c0001_k"$cont".fits,g" $inparam #Dust
+        cp chains_ml_"$mapname"_v"$base"/temp_amp_c0001_k"$cont".dat temp_amp_init_v"$newver".dat
+        sed -i "s,^\(TEMPLATE_AMP_INPUT[ ]*= \).*,\1temp_amp_init_v"$newver".dat,g" $inparam #Mono_dipole
 
-        sed -i "s,^\(INIT_INDEX_MAP02_01[ ]*= \).*,\1chains_ml_"$mapname"_v"$oldver"/synch_beta_c0001_k"$cont".fits,g" $inparam #synch beta
-        sed -i "s,^\(INITIAL_AMPLITUDE_MAP02[ ]*= \).*,\1chains_ml_"$mapname"_v"$oldver"/synch_c0001_k"$cont".fits,g" $inparam #synch
+        cp chains_ml_"$mapname"_v"$base"/gain_no0001.dat gain_init_v"$newver".dat
+        sed -i "s,^\(GAIN_INIT[ ]*= \).*,\1gain_init_v"$newver".dat,g" $inparam #Gain init
 
-        sed -i "s,^\(INITIAL_AMPLITUDE_MAP03[ ]*= \).*,\1chains_ml_"$mapname"_v"$oldver"/co_c0001_k"$cont".fits,g" $inparam #CO
-        sed -i "s,^\(INIT_INDEX_MAP03_01[ ]*= \).*,\1chains_ml_"$mapname"_v"$oldver"/co_217_c0001_k"$cont".fits,g" $inparam #co 217
-        sed -i "s,^\(INIT_INDEX_MAP03_02[ ]*= \).*,\1chains_ml_"$mapname"_v"$oldver"/co_353_c0001_k"$cont".fits,g" $inparam #co 353
+        cp chains_ml_"$mapname"_v"$base"/bp_no0001.dat bp_init_v"$newver".dat
+        sed -i "s,^\(BANDPASS_INIT[ ]*= \).*,\1bp_init_v"$newver".dat,g" $inparam #Bandpass init
 
-        sed -i "s,^\(INITIAL_AMPLITUDE_MAP04[ ]*= \).*,\1chains_ml_"$mapname"_v"$oldver"/cmb_c0001_k"$cont".fits,g" $inparam #CMB
+        cp chains_ml_"$mapname"_v"$base"/dust_beta_c0001_k"$cont".fits dust_beta_init_v"$newver".fits
+        sed -i "s,^\(INIT_INDEX_MAP01_01[ ]*= \).*,\1dust_beta_init_v"$newver".fits,g" $inparam #Dust beta
 
-        #temp_amp
-        #gain_ini
-        #bp
+        cp chains_ml_"$mapname"_v"$base"/dust_Td_c0001_k"$cont".fits dust_Td_init_v"$newver".fits
+        sed -i "s,^\(INIT_INDEX_MAP01_02[ ]*= \).*,\1dust_Td_init_v"$newver".fits,g" $inparam #Dust Td
+
+        cp chains_ml_"$mapname"_v"$base"/dust_c0001_k"$cont".fits dust_init_v"$newver".fits
+        sed -i "s,^\(INITIAL_AMPLITUDE_MAP01[ ]*= \).*,\1dust_init_v"$newver".fits,g" $inparam #Dust
+
+        cp chains_ml_"$mapname"_v"$base"/synch_beta_c0001_k"$cont".fits synch_beta_init_v"$newver".fits
+        sed -i "s,^\(INIT_INDEX_MAP02_01[ ]*= \).*,\1synch_beta_init_v"$newver".fits,g" $inparam #synch beta
+
+        cp chains_ml_"$mapname"_v"$base"/synch_c0001_k"$cont".fits synch_init_v"$newver".fits
+        sed -i "s,^\(INITIAL_AMPLITUDE_MAP02[ ]*= \).*,\1synch_init_v"$newver".fits,g" $inparam #synch
+
+        cp chains_ml_"$mapname"_v"$base"/co_c0001_k"$cont".fits co_init_v"$newver".fits
+        sed -i "s,^\(INITIAL_AMPLITUDE_MAP03[ ]*= \).*,\1co_init_v"$newver".fits,g" $inparam #CO
+
+        cp chains_ml_"$mapname"_v"$base"/co_217_c0001_k"$cont".fits co_217_init_v"$newver".fits
+        sed -i "s,^\(INIT_INDEX_MAP03_01[ ]*= \).*,\1co_217_init_v"$newver".fits,g" $inparam #co 217
+
+        cp chains_ml_"$mapname"_v"$base"/co_353_c0001_k"$cont".fits co_353_init_v"$newver".fits
+        sed -i "s,^\(INIT_INDEX_MAP03_02[ ]*= \).*,\1co_353_init_v"$newver".fits,g" $inparam #co 353
+
+        cp chains_ml_"$mapname"_v"$base"/cmb_c0001_k"$cont".fits cmb_init_v"$newver".fits
+        sed -i "s,^\(INITIAL_AMPLITUDE_MAP04[ ]*= \).*,\1cmb_init_v"$newver".fits,g" $inparam #CMB
+
+        read -p "New input-maps? Map correction keyword: [ex. MDCOR1] (Only npipe) " nc
+        if [[ $nc ]]; then
+          sed -i "s,^\(MAP01_0001[ ]*= \).*,\1map_npipe4v207_v1_030_0256_40arcmin_full_"$nc".fits,g" $inparam #CMB
+          sed -i "s,^\(MAP02_0001[ ]*= \).*,\1map_npipe4v207_v1_044_0256_40arcmin_full_"$nc".fits,g" $inparam #CMB
+          sed -i "s,^\(MAP03_0001[ ]*= \).*,\1map_npipe4v207_v1_070_0256_40arcmin_full_"$nc".fits,g" $inparam #CMB
+          sed -i "s,^\(MAP04_0001[ ]*= \).*,\1map_npipe4v205_v1_100_0256_40arcmin_full_"$nc".fits,g" $inparam #CMB
+          sed -i "s,^\(MAP05_0001[ ]*= \).*,\1map_npipe4v205_v1_143_0256_40arcmin_full_"$nc".fits,g" $inparam #CMB
+          sed -i "s,^\(MAP06_0001[ ]*= \).*,\1map_npipe4v205_v1_217_0256_40arcmin_full_"$nc".fits,g" $inparam #CMB
+          sed -i "s,^\(MAP07_0001[ ]*= \).*,\1map_npipe4v205_v1_353_0256_40arcmin_full_"$nc".fits,g" $inparam #CMB
+          sed -i "s,^\(MAP08_0001[ ]*= \).*,\1map_npipe4v205_v1_545_2_0256_40arcmin_full_"$nc".fits,g" $inparam #CMB
+          sed -i "s,^\(MAP09_0001[ ]*= \).*,\1map_npipe4v205_v1_857_2_0256_40arcmin_full_"$nc".fits,g" $inparam #CMB
+        fi
+
       fi
       sub_menu2;
       ;;
+      7)
+      echo "Please choose 5a-b in main menu."
+      read -p "Press [Enter] key to continue..." readEnterKey
+      sub_menu2;
+      ;;
 
-      7) #-------- List all input maps ---------
+      7a) #-------- List all input maps ---------
       echo "Input maps in $inparam"
       for i in {1..9};
       do
       sed -n -e "s/^.*\(MAP0"$i"_0001\)/\1/p" $inparam
       done
       read -p "Press [Enter] key to continue..." readEnterKey
-      more $inparam
+      #more $inparam
       sub_menu2;
       ;;
-      8) #--------- Read parameter file ---------
+
+      7b) clear;
+      echo "Change input maps"
+      ls map*.fits
+
+      read -p "New input map keyword: [ex. MDCOR]" nc
+      if [[ $nc ]]; then
+        sed -i "s,^\(MAP01_0001[ ]*= \).*,\1map_npipe4v207_v1_030_0256_40arcmin_full_"$nc".fits,g" $inparam #CMB
+        sed -i "s,^\(MAP02_0001[ ]*= \).*,\1map_npipe4v207_v1_044_0256_40arcmin_full_"$nc".fits,g" $inparam #CMB
+        sed -i "s,^\(MAP03_0001[ ]*= \).*,\1map_npipe4v207_v1_070_0256_40arcmin_full_"$nc".fits,g" $inparam #CMB
+        sed -i "s,^\(MAP04_0001[ ]*= \).*,\1map_npipe4v205_v1_100_0256_40arcmin_full_"$nc".fits,g" $inparam #CMB
+        sed -i "s,^\(MAP05_0001[ ]*= \).*,\1map_npipe4v205_v1_143_0256_40arcmin_full_"$nc".fits,g" $inparam #CMB
+        sed -i "s,^\(MAP06_0001[ ]*= \).*,\1map_npipe4v205_v1_217_0256_40arcmin_full_"$nc".fits,g" $inparam #CMB
+        sed -i "s,^\(MAP07_0001[ ]*= \).*,\1map_npipe4v205_v1_353_0256_40arcmin_full_"$nc".fits,g" $inparam #CMB
+        sed -i "s,^\(MAP08_0001[ ]*= \).*,\1map_npipe4v205_v1_545_2_0256_40arcmin_full_"$nc".fits,g" $inparam #CMB
+        sed -i "s,^\(MAP09_0001[ ]*= \).*,\1map_npipe4v205_v1_857_2_0256_40arcmin_full_"$nc".fits,g" $inparam #CMB
+      fi
+      sub_menu2;
+      ;;
+
+      8) clear; #--------- Read parameter file ---------
       more $inparam
       sub_menu2;
       ;;
@@ -524,6 +578,7 @@ DELIM
       *)
       echo "Error: Invalid option..."
       read -p "Press [Enter] key to continue..." readEnterKey
+      sub_menu2;
       ;;
       esac
 
@@ -546,6 +601,8 @@ sub_menu3(){
 
       case $sub1 in
         1)  # ------------ Smooth maps -----------
+        echo "not finished"
+        exit
         echo ${bsize[$b]} ${nside[$b]} ${outset[$s]} ${infreq[$f]}
 
         prefix=("npipe4v207_v1" "npipe4v205")
@@ -559,16 +616,16 @@ sub_menu3(){
 
         outset=(full)
         inset=(full)
-
+        map_editor dipole_CMB.fits 0 768 256 beam_40arcmin.fits 40 dipole_CMB_n0256.fits
 
         for (( b=0; b<${#bsize[@]}; b++ )); do
           for (( s=0; s<${#prefix[@]}; s++ )); do
             for (( f=0; f<${#infreq[@]}; f++ )); do
               $map_editor smooth f2g
-              ${prefix[$s]}_${infreq[$f]}_map.fits \
+              dipole_CMB.fits \
               0 ${lmax[$b]} ${nside[$b]} \
               beam_dx12_${infreq[$f]%%_*}x${infreq[$f]%%_*}_extended_npipe4.fits ${bsize[$b]} \
-              map_${prefix}_${infreq[$f]}_${nside[$b]}_${bsize[$b]}arcmin_$outset.fits \
+              dipole_CMB_n0256.fits \
               ${rfill}
             done
           done

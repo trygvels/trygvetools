@@ -1,0 +1,77 @@
+#!/bin/bash
+export OMP_NUM_THREADS=24
+
+#maped=~/quietsvn/oslo/src/f90/map_editor/map_editor
+maped=/mn/stornext/u3/hke/local/bin/map_editor
+
+map2png=/mn/stornext/u3/hke/local/bin/map2png
+
+prefix="npipe4v207_v1"
+rfill="10"
+
+#outfreq=(030 044 070 100 143 217 353)
+#infreq=(030 044 070 100 143 217 353)
+#outfreq=(100 143 217 353)
+#infreq=(100 143 217 353)
+
+# SINGLE BOLOMETER
+#outfreq=(100-1a 100-1b 100-2a 100-2b 100-3a 100-3b 100-4a 100-4b 217-1 217-2 217-3 217-4 217-5a 217-5b 217-6a 217-6b 217-7a 217-7b 217-8a 217-8b 353-1 353-2 353-3a 353-3b 353-4a 353-4b 353-5a 353-5b 353-6a 353-6b 353-7 353-8)
+#infreq=(100-1a 100-1b 100-2a 100-2b 100-3a 100-3b 100-4a 100-4b 217-1 217-2 217-3 217-4 217-5a 217-5b 217-6a 217-6b 217-7a 217-7b 217-8a 217-8b 353-1 353-2 353-3a 353-3b 353-4a 353-4b 353-5a 353-5b 353-6a 353-6b 353-7 353-8)
+
+# SINGLE HORN
+outfreq=(100-1 100-2 100-3 100-4 217-5 217-6 217-7 217-8 353-3 353-4 353-5 353-6)
+infreq=(100-1 100-2 100-3 100-4 217-5 217-6 217-7 217-8 353-3 353-4 353-5 353-6)
+#outfreq=(545_1 545_2 545_4 857_1 857_2 857_3 857_4)
+#infreq=(545-1 545-2 545-4 857-1 857-2 857-3 857-4)
+
+#bsize=(60 40 10 7.5)
+#nside=(0256 0256 1024 2048)
+#lmax=(1024 1024 4096 8192)
+#bsize=(60)
+#nside=(0016)
+#lmax=(64)
+
+#bsize=(60 420 60 40)
+#nside=(0016 0032 0256 0256)
+#lmax=(48 96 768 768)
+
+bsize=(40)
+nside=(0256)
+lmax=(750)
+
+#outset=(full yr1 yr2 hm1 hm2 hr1 hr2)
+#inset=(full yr1 yr2 hm1 hm2 full_hr1 full_hr2)
+outset=(full)
+inset=(full)
+
+
+for (( f=0; f<${#infreq[@]}; f++ )); do
+    echo ${infreq[f]%%_*}
+done
+
+for (( b=0; b<${#bsize[@]}; b++ )); do
+    for (( s=0; s<${#inset[@]}; s++ )); do
+	for (( f=0; f<${#infreq[@]}; f++ )); do
+	    echo ${bsize[$b]} ${nside[$b]} ${outset[$s]} ${outfreq[$f]}
+	    $maped smooth f2g \
+    calibrated_iter02_${infreq[$f]}_bmap.fits \
+		0 ${lmax[$b]} ${nside[$b]} \
+		beam_dx12_${outfreq[$f]%%-*}x${outfreq[$f]%%-*}_extended_npipe4.fits ${bsize[$b]} \
+		calibrated_iter02_${infreq[$f]}_${nside[$b]}_bmap.fits \
+		${rfill}
+
+      $maped scale \
+		calibrated_iter02_${infreq[$f]}_${nside[$b]}_bmap.fits \
+		calibrated_iter02_${infreq[$f]}_${nside[$b]}_bmap.fits 1e6
+
+    #PLOTTER
+    if [ "${outfreq[f]%%-*}" == "353" ]; then
+      trange="-min 500 -max 1500"
+    else
+         trange="-range 500"
+     fi
+     $map2png calibrated_iter02_${infreq[$f]}_${nside[$b]}_bmap.fits -bar $trange
+
+done
+    done
+done

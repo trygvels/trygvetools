@@ -2,6 +2,40 @@
 map_editor=/mn/stornext/u3/hke/owl/quiet_svn/oslo/src/f90/map_editor/map_editor
 
 freqs=("30" "44" "70" "100" "143" "217" "353" "545" "857")
+gainz=("0.982432" "0.997485" "0.996080" "1.000000" "1.000816" "1.000347" "1.000000" "1.000000" "1.100000")
+
+sbolo=("calibrated_iter02_100-1a_bmap"
+"calibrated_iter02_100-1b_bmap"
+"calibrated_iter02_100-2a_bmap"
+"calibrated_iter02_100-2b_bmap"
+"calibrated_iter02_100-3a_bmap"
+"calibrated_iter02_100-3b_bmap"
+"calibrated_iter02_100-4a_bmap"
+"calibrated_iter02_100-4b_bmap"
+"calibrated_iter02_217-1_bmap"
+"calibrated_iter02_217-2_bmap"
+"calibrated_iter02_217-3_bmap"
+"calibrated_iter02_217-4_bmap"
+"calibrated_iter02_217-5a_bmap"
+"calibrated_iter02_217-5b_bmap"
+"calibrated_iter02_217-6a_bmap"
+"calibrated_iter02_217-6b_bmap"
+"calibrated_iter02_217-7a_bmap"
+"calibrated_iter02_217-7b_bmap"
+"calibrated_iter02_217-8a_bmap"
+"calibrated_iter02_217-8b_bmap"
+"calibrated_iter02_353-1_bmap"
+"calibrated_iter02_353-2_bmap"
+"calibrated_iter02_353-3a_bmap"
+"calibrated_iter02_353-3b_bmap"
+"calibrated_iter02_353-4a_bmap"
+"calibrated_iter02_353-4b_bmap"
+"calibrated_iter02_353-5a_bmap"
+"calibrated_iter02_353-5b_bmap"
+"calibrated_iter02_353-6a_bmap"
+"calibrated_iter02_353-6b_bmap"
+"calibrated_iter02_353-7_bmap"
+"calibrated_iter02_353-8_bmap")
 
 npipe=("map_npipe4v207_v1_030_0256_40arcmin_full"
 "map_npipe4v207_v1_044_0256_40arcmin_full"
@@ -9,7 +43,9 @@ npipe=("map_npipe4v207_v1_030_0256_40arcmin_full"
 "map_npipe4v205_v1_100_0256_40arcmin_full"
 "map_npipe4v205_v1_143_0256_40arcmin_full"
 "map_npipe4v205_v1_217_0256_40arcmin_full"
-"map_npipe4v205_v1_353_0256_40arcmin_full")
+"map_npipe4v205_v1_353_0256_40arcmin_full"
+"map_npipe4v205_v1_545_2_0256_40arcmin_full"
+"map_npipe4v205_v1_857_2_0256_40arcmin_full")
 
 dx11=("map_dx11d_r2_bpc_030_0256_40arcmin_full"
 "map_dx11d_r2_bpc_044_0256_40arcmin_full"
@@ -37,7 +73,9 @@ dx12hires=("LFI_SkyMap_030_1024_R3.00_bpcorrected_full"
 "100GHz_ful.all_ful.RD12_RC4.P"
 "143GHz_ful.all_ful.RD12_RC4.P"
 "217GHz_ful.all_ful.RD12_RC4.P"
-"353GHz_ful.all_ful.RD12_RC4.P")
+"353GHz_ful.all_ful.RD12_RC4.P"
+"545GHz_ful.all_ful.RD12_RC4.I"
+"857GHz_ful.all_ful.RD12_RC4.I")
 
 npipehires=("npipe4v207_030_map"
 "npipe4v207_044_map"
@@ -45,7 +83,9 @@ npipehires=("npipe4v207_030_map"
 "npipe4v205_100_map"
 "npipe4v205_143_map"
 "npipe4v205_217_map"
-"npipe4v205_353_map")
+"npipe4v205_353_map"
+"npipe4v205_545-2_map"
+"npipe4v205_857-2_map")
 
 masks=("commander_dx12_mask_n0256_likelihood_v2.fits"
 "commander_dx12_mask_n1024_likelihood_v2.fits"
@@ -55,11 +95,12 @@ masksfullsky=("mask_fullsky_n256.fits"
 "mask_fullsky_n1024.fits"
 "mask_fullsky_n2048.fits")
 
-dipolemaps=()
+#dipolemaps=("dipole_CMB_n0256_.fits")
 
 read -p "input map: [npipe dx12 dx11] " inputmap
 read -p "Adjustment map: [npipe dx12 dx11] " adjmap
 read -p "Resolution: [hi/lo] " res
+
 
 # If hires then:
 if [[ $res == hi ]]; then
@@ -114,69 +155,151 @@ else # LORES Versions
 fi
 
 # Number of maps to correct
-read -p "Correct all maps? [y/n, n for 30-353] " nmaps
-if [[ $nmaps == y ]]; then
+read -p "Correct all maps? [1. all, 2. 30-353, 3. 545-857] " nmaps
+if [[ $nmaps == 1 ]]; then
   rng=8
-else
+  st=0
+elif [[ $nmaps == 2 ]]; then
   rng=6
+  st=0
+elif [[ $nmaps == 3 ]]; then
+  rng=8
+  st=7
 fi
 
 read -p "Output map name extension [ex. MDCOR] " outputname
+
 
 echo "Method 1:"
 echo "Use fit_gain_offset_dipole and use output in subtract_mono_dipole"
 echo "Method 2:"
 echo "Calculate diff of maps and subtract MD with subtract_mono_dipole"
 
-read -p "Which method [1. or 2.]" method
-read -p "Would you like to scale your results? [factor, ex. 1e6] "
-read -p "Got dipole maps? " gotdipoles
+read -p "Which method [1. or 2.] " method
+echo "Using dipole gains:"
+echo $gainz
+#read -p "Would you like to scale your results? [factor, ex. 1e6] " scale
+#read -p "Got dipole maps? " gotdipoles
 if [[ $method == 1 ]]; then # METHOD 1
-  for ((i=0; i<=$rng; i++)) ; do
+  for ((i=$st; i<=$rng; i++)) ; do
     echo "----------------------------------------------------------------------------------"
+    echo "Method 1"
     echo ${freqs[$i]} "GHz map"
     echo "Input map: "${inputmap[$i]}
     echo "Adjusting with: " ${adjmap[$i]}
     echo "----------------------------------------------------------------------------------"
+
     if [[ $res == hi ]]; then #Adjust masks for hires
       if [ $i -lt 3 ];
       then
-    	   j=1
+         j=1
+         nside=1024
+         dipolemap="dipolemaps/dipole_CMB_n"$nside"_"${freqs[$i]}"GHz.fits"
       else
-    	   j=2
+         j=2
+         nside=2048
+         dipolemap="dipolemaps/dipole_CMB_n"$nside"_"${freqs[$i]}"GHz.fits"
       fi
     else
       j=0
+      nside=0256
+      dipolemap="dipolemaps/dipole_CMB_n"$nside"_"${freqs[$i]}"GHz.fits"
     fi
-    $map_editor fit_gain_offset_dipole ${adjmap[$i]}.fits ${inputmap[$i]}.fits ${masksfullsky[$j]} ${masks[$j]} residual.fits 2>/dev/null > fit_gain_temp.txt #save output and ignore error
-    #$map_editor fit_gain_offset_dipole "../dx12/map_dx12_bpc_v2_030_0256_40arcmin_full.fits" "map_npipe4v207_v1_030_0256_40arcmin_full.fits" "mask_fullsky_n256.fits" "commander_dx12_mask_n0256_likelihood_v2.fits" residual.fits 2>/dev/null > fit_gain_temp.txt #sav
+    #echo ${inputmap[$i]}".fits" ${adjmap[$i]}".fits" ${masksfullsky[$j]} ${masks[$j]}
+
+    #-------------------- FIT GAIN OFFSET - GET GAIN AND OFFSET ----------------------
+    if [[ $res == hi ]]; then
+      if [ $i -gt 6 ]; then
+        $map_editor fit_gain_offset_dipole ${dx12[$i]}".fits" ${npipe[$i]}".fits" ${masksfullsky[$j]} ${masks[$j]} residual.fits 2>/dev/null > fit_gain_temp.txt #save output and ignore error
+      else
+        $map_editor fit_gain_offset_dipole ${dx12[$i]}".fits" ${npipe[$i]}".fits" ${masksfullsky[$j]} ${masks[$j]} residual.fits 2>/dev/null > fit_gain_temp.txt #save output and ignore error
+        #Dont use hires for gain and offset - too few digits and but same answer
+        #$map_editor fit_gain_offset_dipole ${adjmap[$i]}".fits" ${inputmap[$i]}".fits" ${masksfullsky[$j]} ${masks[$j]} residual.fits 2>/dev/null > fit_gain_temp.txt #save output and ignore error
+      fi
+    else
+      $map_editor fit_gain_offset_dipole ${adjmap[$i]}".fits" ${inputmap[$i]}".fits" ${masksfullsky[$j]} ${masks[$j]} residual.fits 2>/dev/null > fit_gain_temp.txt #save output and ignore error
+    fi
+    #map_editor fit_gain_offset_dipole LFI_SkyMap_044_1024_R3.00_bpcorrected_full.fits npipe4v207_044_map.fits mask_fullsky_n1024.fits commander_dx12_mask_n1024_likelihood_v2.fits residual.fits
     # EXTRACT OFFSET OUTPUT
-    #tr -s '[:space:]' < fit_gain_temp.txt # Remove double spaces
-    offset=$(tail -n 1 fit_gain_temp.txt | grep -oP '(?<=offset\ =\ ).*')
+    tr -s '[:space:]' < fit_gain_temp.txt # Remove double spaces
+    offset=($(tail -n 1 fit_gain_temp.txt | grep -oP '(?<=offset\ =\ ).*'))
     # EXTRACT GAIN OUTPUT
-    gain=$(tail -n 1 fit_gain_temp.txt | grep -o -P '(?<=gain\ =\ ).*(?=,)')
-    gain=$(bc -l <<< "1/$gain")
+    gain=$(tail -n 1 fit_gain_temp.txt | grep -oP '(?<=gain\ =\ ).*(?=,)')
+    gain=$(bc -l <<< "1/$gain") # 1/gain calculator
 
-    echo "gain: $gain offset:  $offset"
 
-    if [[ $scale ]]; then
+    echo "gain: $gain offset:  ${offset[0]} ${offset[1]} ${offset[2]} ${offset[3]}"
+
+    offset=$(echo -"($offset)" | bc -l) # Invert offset
+
+
+    if [[ $scale ]]; then #Invert gain
       gain=$(bc -l <<< "$scale*$gain")
     fi
 
-    if [[ $gotdipoles ]]; then
-      $map_editor subtract ${inputmap[$i]}".fits" $dipolemaps ${inputmap[$i]}"_"$outputname".fits"
-    else
-      $map_editor subtract_mono_dipole ${inputmap[$i]}".fits" ${masks[$j]} ${inputmap[$i]}"_"$outputname".fits" $offset
-    fi
+    #-------------------- SUBTRACT DIPOLE MAP ----------------------
+    #-------------------- ADD OFFSET and SCALE WITH 1/GAIN ----------------------
+    #If using dipole maps:
+    if [[ $res == hi ]]; then
 
-    $map_editor scale ${inputmap[$i]}"_"$outputname".fits" ${inputmap[$i]}"_"$outputname".fits" $gain
+      # HIRES 30-353
+      echo "Subtracting with dipole maps"
+      $map_editor scale $dipolemap dipolemap_"${freqs[$i]}"_hires.fits ${gainz[$i]}
+      $map_editor subtract ${inputmap[$i]}".fits" dipolemap_"${freqs[$i]}"_hires.fits ${inputmap[$i]}"_"$outputname".fits"
+      $map_editor scale ${inputmap[$i]}"_"$outputname".fits" ${inputmap[$i]}"_"$outputname".fits" 1e6
+
+      # HIRES 545 and 857
+      if [ $i -gt 6 ]; then
+        echo "Adding offset of ${offset[0]}"
+        $map_editor add_offset ${inputmap[$i]}"_"$outputname".fits" ${inputmap[$i]}"_"$outputname".fits" ${offset[0]}
+        #$map_editor scale ${inputmap[$i]}"_"$outputname".fits" ${inputmap[$i]}"_"$outputname".fits" $gain
+      else
+        #offset=$(bc -l <<< "${offset[0]}*1000000") # Scale offset by 1e6 only if comparing Hires (Which you should not)
+        echo "Adding offset of ${offset}"
+        $map_editor add_offset ${inputmap[$i]}"_"$outputname".fits" ${inputmap[$i]}"_"$outputname".fits" ${offset[0]}
+        #$map_editor scale ${inputmap[$i]}"_"$outputname".fits" ${inputmap[$i]}"_"$outputname".fits" $gain
+      fi
+
+      rm dipolemap_"${freqs[$i]}"_hires.fits #remove created dipole maps
+
+    else
+      # nside 256 30-857
+      echo "Subtracting with dipole maps"
+      $map_editor scale $dipolemap dipolemap_muK.fits 1e6
+      $map_editor scale dipolemap_muK.fits dipolemap_muK.fits ${gainz[$i]} #Adjusting with dipole gain
+      $map_editor subtract ${inputmap[$i]}".fits" dipolemap_muK.fits ${inputmap[$i]}"_"$outputname".fits"
+
+      echo "Adding offset of ${offset[0]}"
+      $map_editor add_offset ${inputmap[$i]}"_"$outputname".fits" ${inputmap[$i]}"_"$outputname".fits" ${offset[0]}
+      if [ $i -gt 6 ]; then
+        $map_editor scale ${inputmap[$i]}"_"$outputname".fits" ${inputmap[$i]}"_"$outputname".fits" $gain
+      fi
+      rm dipolemap_muK.fits 2>/dev/null
+    fi
 
     rm fit_gain_temp.txt 2>/dev/null
     rm residual.fits 2>/dev/null
+
+
+    # Make plots
+    if [ $i -lt 7 ]; then
+      if [[ $i == "6" ]]; then #Higher range for 353
+        map2png ${inputmap[$i]}"_"$outputname".fits" -bar -min 0 -max 3000
+      else
+        map2png ${inputmap[$i]}"_"$outputname".fits" -bar -min 0 -max 300
+      fi
+    else
+      map2png ${inputmap[$i]}"_"$outputname".fits" -bar -min 0 -max 10
+    fi
+
+
+    echo $outputname
   done
+
 elif [[ $method == 2 ]]; then # METHOD 2
   for ((i=0; i<=$rng; i++)) ; do
     echo "----------------------------------------------------------------------------------"
+    echo "Method 2"
     echo ${freqs[$i]} "GHz map"
     echo "Input map: "${inputmap[$i]}
     echo "Adjusting with: " ${adjmap[$i]}
@@ -185,12 +308,15 @@ elif [[ $method == 2 ]]; then # METHOD 2
     if [[ $res == hi ]]; then #Adjust masks for hires
       if [ $i -lt 3 ];
       then
-    	   j=1
+         j=1
+         nside=1024
       else
-    	   j=2
+         j=2
+         nside=2048
       fi
     else
       j=0
+      nside=0256
     fi
 
     # Do correction
@@ -198,18 +324,25 @@ elif [[ $method == 2 ]]; then # METHOD 2
     $map_editor subtract_mono_dipole diff.fits ${masks[$j]} correct.fits
     $map_editor subtract diff.fits correct.fits mono.fits
     $map_editor subtract ${inputmap[$i]}".fits" mono.fits ${inputmap[$i]}"_"$outputname".fits"
-    $map_editor scale ${inputmap[$i]}"_"$outputname".fits" ${inputmap[$i]}"_"$outputname".fits" 1e6
-
+    if [[ $res == hi ]]; then
+      $map_editor scale ${inputmap[$i]}"_"$outputname".fits" ${inputmap[$i]}"_"$outputname".fits" 1e6
+    fi
     # Make plots
     if [ $i -lt 7 ]; then
-      map2png ${inputmap[$i]}"_"$outputname".fits" -bar -range 250
+      if [[ $i == "6" ]]; then #Higher range for 353
+        map2png ${inputmap[$i]}"_"$outputname".fits" -bar -min 0 -max 3000
+      else
+        map2png ${inputmap[$i]}"_"$outputname".fits" -bar -min 0 -max 300
+      fi
     else
-      map2png ${inputmap[$i]}"_"$outputname".fits" -bar -range 10
+      map2png ${inputmap[$i]}"_"$outputname".fits" -bar -min 0 -max 10
     fi
 
     # Remove maps
     rm diff.fits
     rm correct.fits
     rm mono.fits
+    echo $outputname
+
 done
 fi

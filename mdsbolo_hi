@@ -1,0 +1,133 @@
+#!/bin/bash
+map_editor=/mn/stornext/u3/hke/owl/quiet_svn/oslo/src/f90/map_editor/map_editor
+
+freqs=("100" "100" "100" "100" "100" "100" "100" "100" "217" "217" "217" "217" "217" "217" "217" "217" "217" "217" "217" "217" "353" "353" "353" "353" "353" "353" "353" "353" "353" "353" "353" "353")
+gainz=("1.000000" "1.000000" "1.000000" "1.000000" "1.000000" "1.000000" "1.000000" "1.000000" "1.000347" "1.000347" "1.000347" "1.000347" "1.000347" "1.000347" "1.000347" "1.000347" "1.000347" "1.000347" "1.000347" "1.000347" "1.000000" "1.000000" "1.000000" "1.000000" "1.000000" "1.000000" "1.000000" "1.000000" "1.000000" "1.000000" "1.000000" "1.000000")
+
+sbolo=("calibrated_iter02_100-1a_0256_bmap"
+"calibrated_iter02_100-1b_0256_bmap"
+"calibrated_iter02_100-2a_0256_bmap"
+"calibrated_iter02_100-2b_0256_bmap"
+"calibrated_iter02_100-3a_0256_bmap"
+"calibrated_iter02_100-3b_0256_bmap"
+"calibrated_iter02_100-4a_0256_bmap"
+"calibrated_iter02_100-4b_0256_bmap"
+"calibrated_iter02_217-1_0256_bmap"
+"calibrated_iter02_217-2_0256_bmap"
+"calibrated_iter02_217-3_0256_bmap"
+"calibrated_iter02_217-4_0256_bmap"
+"calibrated_iter02_217-5a_0256_bmap"
+"calibrated_iter02_217-5b_0256_bmap"
+"calibrated_iter02_217-6a_0256_bmap"
+"calibrated_iter02_217-6b_0256_bmap"
+"calibrated_iter02_217-7a_0256_bmap"
+"calibrated_iter02_217-7b_0256_bmap"
+"calibrated_iter02_217-8a_0256_bmap"
+"calibrated_iter02_217-8b_0256_bmap"
+"calibrated_iter02_353-1_0256_bmap"
+"calibrated_iter02_353-2_0256_bmap"
+"calibrated_iter02_353-3a_0256_bmap"
+"calibrated_iter02_353-3b_0256_bmap"
+"calibrated_iter02_353-4a_0256_bmap"
+"calibrated_iter02_353-4b_0256_bmap"
+"calibrated_iter02_353-5a_0256_bmap"
+"calibrated_iter02_353-5b_0256_bmap"
+"calibrated_iter02_353-6a_0256_bmap"
+"calibrated_iter02_353-6b_0256_bmap"
+"calibrated_iter02_353-7_0256_bmap"
+"calibrated_iter02_353-8_0256_bmap")
+
+dx12=("../../dx12/map_dx12_v2_100_0256_40arcmin_full"
+"../../dx12/map_dx12_v2_100_0256_40arcmin_full"
+"../../dx12/map_dx12_v2_100_0256_40arcmin_full"
+"../../dx12/map_dx12_v2_100_0256_40arcmin_full"
+"../../dx12/map_dx12_v2_100_0256_40arcmin_full"
+"../../dx12/map_dx12_v2_100_0256_40arcmin_full"
+"../../dx12/map_dx12_v2_100_0256_40arcmin_full"
+"../../dx12/map_dx12_v2_100_0256_40arcmin_full"
+"../../dx12/map_dx12_v2_217_0256_40arcmin_full"
+"../../dx12/map_dx12_v2_217_0256_40arcmin_full"
+"../../dx12/map_dx12_v2_217_0256_40arcmin_full"
+"../../dx12/map_dx12_v2_217_0256_40arcmin_full"
+"../../dx12/map_dx12_v2_217_0256_40arcmin_full"
+"../../dx12/map_dx12_v2_217_0256_40arcmin_full"
+"../../dx12/map_dx12_v2_217_0256_40arcmin_full"
+"../../dx12/map_dx12_v2_217_0256_40arcmin_full"
+"../../dx12/map_dx12_v2_217_0256_40arcmin_full"
+"../../dx12/map_dx12_v2_217_0256_40arcmin_full"
+"../../dx12/map_dx12_v2_217_0256_40arcmin_full"
+"../../dx12/map_dx12_v2_217_0256_40arcmin_full"
+"../../dx12/map_dx12_v2_353_0256_40arcmin_full"
+"../../dx12/map_dx12_v2_353_0256_40arcmin_full"
+"../../dx12/map_dx12_v2_353_0256_40arcmin_full"
+"../../dx12/map_dx12_v2_353_0256_40arcmin_full"
+"../../dx12/map_dx12_v2_353_0256_40arcmin_full"
+"../../dx12/map_dx12_v2_353_0256_40arcmin_full"
+"../../dx12/map_dx12_v2_353_0256_40arcmin_full"
+"../../dx12/map_dx12_v2_353_0256_40arcmin_full"
+"../../dx12/map_dx12_v2_353_0256_40arcmin_full"
+"../../dx12/map_dx12_v2_353_0256_40arcmin_full"
+"../../dx12/map_dx12_v2_353_0256_40arcmin_full"
+"../../dx12/map_dx12_v2_353_0256_40arcmin_full")
+
+masks=("commander_dx12_mask_n0256_likelihood_v2.fits"
+"commander_dx12_mask_n1024_likelihood_v2.fits"
+"commander_dx12_mask_n2048_likelihood_v2.fits")
+
+masksfullsky=("mask_fullsky_n256.fits"
+"mask_fullsky_n1024.fits"
+"mask_fullsky_n2048.fits")
+
+#dipolemaps=("dipole_CMB_n0256_.fits")
+
+inputmap=( "${sbolo[@]}" )
+adjmap=( "${dx12[@]}" )
+
+
+
+read -p "Output map name extension [ex. MDCOR] " outputname
+
+for ((i=0; i<=${#inputmap[@]}; i++)) ; do
+  echo "----------------------------------------------------------------------------------"
+  echo "Method 1"
+  echo "Input map: "${inputmap[$i]}
+  echo "Adjusting with: " ${adjmap[$i]}
+  echo "----------------------------------------------------------------------------------"
+
+  j=0
+  nside=0256
+  dipolemap="../dipolemaps/dipole_CMB_n"$nside"_"${freqs[$i]}"GHz.fits"
+  #-------------------- FIT GAIN OFFSET - GET GAIN AND OFFSET ----------------------
+  $map_editor fit_gain_offset_dipole ${adjmap[$i]}".fits" ${inputmap[$i]}".fits" ${masksfullsky[$j]} ${masks[$j]} residual.fits 2>/dev/null > fit_gain_temp.txt #save output and ignore error
+
+  # EXTRACT OFFSET OUTPUT
+  tr -s '[:space:]' < fit_gain_temp.txt # Remove double spaces
+  offset=($(tail -n 1 fit_gain_temp.txt | grep -oP '(?<=offset\ =\ ).*'))
+  # EXTRACT GAIN OUTPUT
+  gain=$(tail -n 1 fit_gain_temp.txt | grep -oP '(?<=gain\ =\ ).*(?=,)')
+  gain=$(bc -l <<< "1/$gain") # 1/gain calculator
+
+
+  echo "gain: $gain offset:  ${offset[0]} ${offset[1]} ${offset[2]} ${offset[3]}"
+
+  offset=$(echo -"($offset)" | bc -l) # Invert offset
+
+
+  #-------------------- SUBTRACT DIPOLE MAP ----------------------
+  #-------------------- ADD OFFSET and SCALE WITH 1/GAIN ----------------------
+  echo "Subtracting with dipole maps"
+  $map_editor scale $dipolemap dipolemap_muK.fits 1e6
+  $map_editor scale dipolemap_muK.fits dipolemap_muK.fits ${gainz[$i]} #Adjusting with dipole gain
+
+  $map_editor subtract ${inputmap[$i]}".fits" dipolemap_muK.fits ${inputmap[$i]}"_"$outputname".fits"
+
+  echo "Adding offset of ${offset[0]}"
+  $map_editor add_offset ${inputmap[$i]}"_"$outputname".fits" ${inputmap[$i]}"_"$outputname".fits" ${offset[0]}
+  #  $map_editor scale ${inputmap[$i]}"_"$outputname".fits" ${inputmap[$i]}"_"$outputname".fits" $gain
+  rm dipolemap_muK.fits 2>/dev/null
+  rm fit_gain_temp.txt 2>/dev/null
+  rm residual.fits 2>/dev/null
+
+  map2png ${inputmap[$i]}"_"$outputname".fits" -bar -min 0 -max 300
+
+done

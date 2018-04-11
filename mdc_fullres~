@@ -1,0 +1,110 @@
+#!/bin/bash
+map_editor=/mn/stornext/u3/hke/owl/quiet_svn/oslo/src/f90/map_editor/map_editor
+
+freqs=("30" "44" "70" "100" "143" "217" "353" "545" "857")
+gainz=("0.982432" "0.997485" "0.996080" "1.000000" "1.000816" "1.000347" "1.000000" "1.000000" "1.100000")
+#freqs=("545" "857")
+#gainz=("1.0000" "1.10000")
+#freqs=("100" "217" "353")
+#gainz=("1.000000" "1.000347" "1.000000")
+#freqs=("545" "857")
+#gainz=("1.000000" "1.100000")
+#sbolo="calibrated_n0256_"${freq}"_map.fits"
+#npipe="npipe5v"${freq}"_n0256_map.fits"
+
+#dx12="../dx12/map_dx12_"*"v2_"${freq}"_0256_40arcmin_full.fits"
+
+masks=("commander_dx12_mask_n1024_likelihood_v2.fits"
+"commander_dx12_mask_n2048_likelihood_v2.fits")
+
+masksfullsky=("mask_fullsky_n1024.fits"
+"mask_fullsky_n2048.fits")
+
+read -p "Output map name extension [ex. MDCOR] " outputname
+
+for ((i=0; i<${#freqs[@]}; i++)) ; do
+  freq=${freqs[$i]} #Frequency
+  g=${gainz[$i]} #Gain for dipole multiplication
+
+  if [ $freq -lt 100 ] ; then
+    echo "$freq this is LFI"
+    #LFI
+    j=0
+    nside=1024
+    dipolemap="~/master/cdata/like/npipe5v5/dipolemaps/dipole_CMB_n"$nside"_"${freq}"GHz.fits"
+    adjmap="~/master/cdata/like/npipe4v203/LFI_SkyMap_0"${freq}"_1024_R3.00_bpcorrected_full.fits" #Map to adjust to
+  elif [ $freq -gt 353 ] ; then #545 and 857
+    echo "$freq this is HFI (545 and 857)"
+    #HFI
+    j=1
+    nside=2048
+    dipolemap="~/master/cdata/like/npipe5v5/dipolemaps/dipole_CMB_n"$nside"_"${freq}"GHz.fits"
+    adjmap="~/master/cdata/like/npipe4v203/"${freq}"GHz_ful.all_ful.RD12_RC4.I.fits" #Map to adjust to
+  else
+    echo "$freq this is HFI"
+    #HFI
+    j=1
+    nside=2048
+    dipolemap="~/master/cdata/like/npipe5v5/dipolemaps/dipole_CMB_n"$nside"_"${freq}"GHz.fits"
+    adjmap="~/master/cdata/like/npipe4v203/"${freq}"GHz_ful.all_ful.RD12_RC4.P.fits" #Map to adjust to
+  fi
+
+
+  for inputmap in "npipe5v"*${freq}*"_map.fits"; do
+  #for inputmap in c; do
+    echo "----------------------------------------------------------------------------------"
+    echo "Method 1"
+    echo "Frequency: " ${freq}
+    echo "Input map: " ${inputmap}
+    echo "Adjusting with: " ${adjmap}
+    echo "Using gain for dipole" $g
+    echo "----------------------------------------------------------------------------------"
+    #$map_editor scale ${inputmap} input.fits 1e # FIRST SCALE TO MUK
+
+    #-------------------- FIT GAIN OFFSET - GET GAIN AND OFFSET ----------------------
+    echo "fit_gain_offset_dipole" ${adjmap}
+    $map_editor fit_gain_offset_dipole ${adjmap} ${inputmap} ${masksfullsky[$j]} ${masks[$j]} residual.fits 2>/dev/null > fit_gain_temp.txt #save output and ignore error
+
+    # EXTRACT OFFSET OUTPUT
+    tr -s '[:space:]' < fit_gain_temp.txt # Remove double spaces
+    offset=($(tail -n 1 fit_gain_temp.txt | grep -oP '(?<=offset\ =\ ).*'))
+    # EXTRACT GAIN OUTPUT
+    gain=$(tail -n 1 fit_gain_temp.txt | grep -oP '(?<=gain\ =\ ).*(?=,)')
+    gain=$(bc -l <<< "1/$gain") # 1/gain calculator
+
+    echo "gain: $gain offset:  ${offset[0]} ${offset[1]} ${offset[2]} ${offset[3]}"
+
+    offset=$(echo -"($offset)" | bc -l) # Invert offset
+
+
+    #-------------------- SUBTRACT DIPOLE MAP ----------------------
+    #-------------------- ADD OFFSET and SCALE WITH 1/GAIN ----------------------
+    echo "Subtracting with dipole maps"
+    #$map_editor scale $dipolemap dipolemap_muK.fits 1e6
+    $map_editor scale $dipolemap dipolemap_muK.fits $g #Adjusting with dipole gain
+
+    $map_editor subtract ${inputmap} dipolemap_muK.fits ${inputmap/map/map_"${outputname}"}
+
+    echo "Adding offset of ${offset[0]}"
+    $map_editor add_offset ${inputmap/map/map_"${outputname}"} ${inputmap/map/map_"${outputname}"} ${offset[0]}
+
+
+    # Convert units if 545 and 857
+    if [ $freq == 545 ] || [ $freq == 857 ] ; then
+      $map_editor scale ${inputmap/map/map_"${outputname}"} ${inputmap/map/map_"${outputname}"} $gain #This is only for unit conversion on 545 and 857
+      # dont scale this to microkelvin...
+      map2png ${inputmap/map/map_"${outputname}"} -bar -min 0 -max 10
+    elif [ $freq == 353 ] ; then
+      map2png ${inputmap/map/map_"${outputname}"} -bar -min 0 -max 3000
+      $map_editor scale ${inputmap/map/map_"${outputname}"} ${inputmap/map/map_"${outputname}"} 1e6
+    else
+      map2png ${inputmap/map/map_"${outputname}"} -bar -min 0 -max 300
+      $map_editor scale ${inputmap/map/map_"${outputname}"} ${inputmap/map/map_"${outputname}"} 1e6
+    fi
+
+    rm dipolemap_muK.fits 2>/dev/null
+    rm fit_gain_temp.txt 2>/dev/null
+    rm residual.fits 2>/dev/null
+    rm input.fits 2>/dev/null
+  done
+done
