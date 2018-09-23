@@ -1,0 +1,578 @@
+#!/bin/bash
+echo ""
+read -p "nside: [64/256/fullres] " ns
+
+
+read -p "Degree: [nosmooth/14/40/60] " deg
+read -p "version: [e.g. 'v1'] " version
+#nside=64
+mask_dir=/mn/stornext/u3/krisjand/stornext/npipe_highres/data_npipe
+m2p=/mn/stornext/u3/hke/local/bin/map2png
+me=/mn/stornext/u3/krisjand/quiet_svn/oslo/src/f90/map_editor/map_editor
+echo ""
+if [ $# -lt 1 ]; then
+  echo "plot_maps [sample number(s)]"
+  exit
+else
+  echo "Plotting sample(s):" $@
+fi
+
+
+if [ "$ns" = "fullres" ]; then
+    ns=2048
+fi
+
+nside=$(printf "%04d\n" $ns)
+
+if [ "$nside" = "2048" ]; then
+    nside_chisq=1024
+    nside_LFI=1024
+else
+    nside_chisq="$nside"
+    nside_LFI="$nside"
+fi
+if [ "$nside" = "2048" ] || [ "$nside" = "1024" ]; then
+    nside_WMAP="0512"
+else
+    nside_WMAP="$nside"
+fi
+for n in $@; do
+  num=$(printf "%06d\n" $n)
+  echo "_____ Smoothing sample $n _____"
+
+  comp_maps_out=("cmb_c0001_k${num}_n${nside}_${deg}arcmin.fits"
+      "dust_c0001_k${num}_n${nside}_${deg}arcmin.fits"
+      "synch_c0001_k${num}_n${nside}_${deg}arcmin.fits"
+      "co10_c0001_k${num}_n${nside}_${deg}arcmin.fits"
+      "co21_c0001_k${num}_n${nside}_${deg}arcmin.fits"
+      "co32_c0001_k${num}_n${nside}_${deg}arcmin.fits"
+      "dust_beta_c0001_k${num}_n${nside}_${deg}arcmin.fits"
+      "dust_T_c0001_k${num}_n${nside}_${deg}arcmin.fits"
+      "synch_beta_c0001_k${num}_n${nside}_${deg}arcmin.fits"
+      "ame_c0001_k${num}_n${nside}_${deg}arcmin.fits"
+      #"ame2_c0001_k${num}_n${nside}_${deg}arcmin.fits"
+      #"co_c0001_k${num}_n${nside}_${deg}arcmin.fits"
+      "ame_nu_p_c0001_k${num}_n${nside}_${deg}arcmin.fits"
+      #"ame2_nup_c0001_k${num}_n${nside}_${deg}arcmin.fits"
+      "ff_c0001_k${num}_n${nside}_${deg}arcmin.fits"
+      "ff_EM_c0001_k${num}_n${nside}_${deg}arcmin.fits"
+      "ff_Te_c0001_k${num}_n${nside}_${deg}arcmin.fits"
+      "hcn_c0001_k${num}_n${nside}_${deg}arcmin.fits")
+  comp_maps=("cmb_c0001_k${num}.fits"
+      "dust_c0001_k${num}.fits"
+      "synch_c0001_k${num}.fits"
+      "co10_c0001_k${num}.fits"
+      "co21_c0001_k${num}.fits"
+      "co32_c0001_k${num}.fits"
+      "dust_beta_c0001_k${num}.fits"
+      "dust_T_c0001_k${num}.fits"
+      "synch_beta_c0001_k${num}.fits"
+      "ame_c0001_k${num}.fits"
+      #"ame2_c0001_k${num}.fits"
+      #"co_c0001_k${num}.fits"
+      "ame_nu_p_c0001_k${num}.fits"
+      #"ame2_nup_c0001_k${num}.fits"
+      "ff_c0001_k${num}.fits"
+      "ff_EM_c0001_k${num}.fits"
+      "ff_Te_c0001_k${num}.fits"
+      "hcn_c0001_k${num}.fits")
+  for ((i=0; i<${#comp_maps[@]}; i++)) ; do
+      if [ "$deg" = "nosmooth" ]; then
+	  continue
+      elif [ -r ${comp_maps_out[$i]} ]; then
+	  echo "${comp_maps_out[$i]} already exists"
+	  echo ""
+      else
+	  echo "Smoothing ${comp_maps[$i]}"
+	  $me smooth g2g ${comp_maps[$i]} 0 6000 2048 0. $deg ${comp_maps_out[$i]}  
+	  if [ "$nside" = "2048" ]; then
+	      echo ""
+	  else
+	      $me ud_grade ${comp_maps_out[$i]} $ns ${comp_maps_out[$i]}
+	      echo ""
+	  fi
+      fi
+  done
+
+
+  if [ "$deg" = "nosmooth" ]; then
+      echo ""
+  elif [ -r chisq_c0001_k${num}_n${nside_chisq}_${deg}arcmin.fits ]; then
+      echo "chisq_c0001_k${num}_n${nside_chisq}_${deg}arcmin.fits already exists"
+  else
+      echo "Smoothing chisq_c0001_k${num}_n${nside_chisq}_${deg}arcmin.fits"
+      $me smooth g2g chisq_c0001_k$num.fits 0 3000 1024 0. $deg chisq_c0001_k${num}_n${nside_chisq}_${deg}arcmin.fits
+      if [ "$nside_chisq" = "1024" ]; then
+	  echo ""
+      else
+	  $me ud_grade chisq_c0001_k${num}_n${nside_chisq}_${deg}arcmin.fits $ns chisq_c0001_k${num}_n${nside_chisq}_${deg}arcmin.fits
+	  echo ""
+      fi
+  fi
+
+  echo "---- Smoothing CO 14 arcmin 512 for comparison to lambda ----"
+  comp_co_maps_lambda=("co10_c0001_k${num}_n0512_14arcmin.fits"
+    "co21_c0001_k${num}_n0512_14arcmin.fits"
+    "co32_c0001_k${num}_n0512_14arcmin.fits")
+
+  for ((i=0; i<=2; i++)) ; do
+      if [ "$deg" = "nosmooth" ]; then
+	  continue
+      elif [ -r ${comp_co_maps_lambda[$i]} ]; then
+	  echo "${comp_co_maps_lambda[$i]} already exists"
+	  echo ""
+      else
+	  echo "Smoothing ${comp_maps[$i]}"
+	  $me smooth g2g ${comp_maps[$(($i+3))]} 0 6000 2048 0. 14. ${comp_co_maps_lambda[$i]}  
+	  $me ud_grade ${comp_co_maps_lambda[$i]} 512 ${comp_co_maps_lambda[$i]}
+	  echo ""
+      fi
+      map2png ${comp_co_maps_lambda[$i]} -bar -min 0 -max 10
+  done
+  
+
+  echo "---- Smoothing residuals ----"
+  freqs=("30" "44" "70" "100" "143" "217" "353" "545" "857" "WMAP" "Haslam")
+
+  for ((i=0; i<${#freqs[@]}; i++)) ; do
+    freq=${freqs[$i]} #Frequency
+    for file in res*${freq}*_c0001_k$num.fits; do
+
+      if [[ $file = *\** ]]; then #Check if contains wildcard (Map does not exist)
+        echo "WARNING: " $file " does not exist!"
+        continue
+      fi
+
+      # getting the correct nside of the output maps
+      if [ "$freq" = "Haslam" ] || [ "$freq" = "WMAP" ]; then	  
+	  outfile=${file/.fits/_n${nside_WMAP}_${deg}arcmin.fits}
+      elif [ $freq -lt 100 ];then
+	  outfile=${file/.fits/_n${nside_LFI}_${deg}arcmin.fits}
+      else
+	  outfile=${file/.fits/_n${nside}_${deg}arcmin.fits}
+      fi
+
+      if [ "$deg" = "nosmooth" ]; then
+	  continue
+      elif [ -r $outfile ]; then
+	  echo "$outfile already exists"
+	  echo ""
+      else
+	  echo "Smoothing $file"
+	  if  [ "$freq" = "Haslam" ] || [ "$freq" = "WMAP" ]; then 
+              $me smooth g2g $file 0 1500 512 0. $deg $outfile
+	      if [ "$nside_WMAP" = "0512" ]; then
+		  echo ""
+	      else
+		  $me ud_grade $outfile $ns $outfile
+		  echo ""
+	      fi
+	  elif [ $freq -lt 100 ]; then
+              $me smooth g2g $file 0 3000 1024 0. $deg $outfile
+	      if [ "$nside_LFI" = "1024" ]; then
+		  echo ""
+	      else
+		  $me ud_grade $outfile $ns $outfile
+		  echo ""
+	      fi
+	  else
+              $me smooth g2g $file 0 6000 2048 0. $deg $outfile
+	      if [ "$nside" = "2048" ]; then
+		  echo ""
+	      else
+		  $me ud_grade $outfile $ns $outfile
+		  echo ""
+	      fi
+	  
+	  fi
+      fi
+      
+    done
+  done
+
+  
+  echo "_____ Plotting sample $n _____"
+  echo "---- Plotting CMB ----"
+
+  if [ "$deg" = "nosmooth" ]; then
+
+      map2png cmb_c0001_k${num}.fits -bar -range 2500
+
+      
+      
+
+####################
+      cmb_dp_path=/mn/stornext/u3/krisjand/stornext/npipe_highres/cmb_dipole
+      chains_path=$(pwd) #getting path
+      ch_path2=(${chains_path/'npipe_highres/'/'npipe_highres '}) #splitting chains-directory from npipe_lowres path
+      ch_str=${ch_path2[1]} #getting the name of the chains-directory
+
+      	  masks=("mask_chisq_15band_n2048_v2_ptsrc.fits"
+	      "mask_proc_v1_n2048.fits" 
+	      "mask_proc_v2_n2048.fits" 
+	      "mask_proc_v3_n2048.fits")
+      	  mask_str=("mask_chisq_15band"
+	      "mask_proc_v1" 
+	      "mask_proc_v2" 
+	      "mask_proc_v3")
+	  out_file=${ch_str/chains_ml_/}
+	  out_file=${out_file/_shb_dipole/}
+	  out_file=cmb_${out_file}_k${num}.txt
+
+	  echo "# CMB (mono &) dipole parameters" > $cmb_dp_path/$out_file
+	  echo "#Chain: $ch_str" >> $cmb_dp_path/$out_file
+	  
+	  for ((j=0;j<${#masks[@]};j++));do
+	      mask_cmb=${masks[$j]}
+	      echo "" >> $cmb_dp_path/$out_file
+	      echo "" 
+	      echo "#Mask: $mask_cmb" >> $cmb_dp_path/$out_file
+	      echo "Mask: $mask_cmb"
+	      
+	      $me subtract_mono_dipole cmb_c0001_k$num.fits $mask_dir/$mask_cmb cmb_c0001_k${num}_${mask_str[$j]}.fits 2>&1 | tee cmb_slurm.txt
+
+	      cmb_line=$(grep -F "Coefficients" cmb_slurm.txt)
+	      rm cmb_slurm.txt
+	      echo " MD coeffs: [monopole] [dipole_x] [dipole_y] [dipole_z]" >> $cmb_dp_path/$out_file
+	      echo " MD coeffs: [monopole] [dipole_x] [dipole_y] [dipole_z]"
+	      echo "#$cmb_line" >> $cmb_dp_path/$out_file
+	      cmb_line="${cmb_line/'Coefficients ='/}"
+	      cmb_coeffs=($cmb_line)
+	      cmb_amp=$(bc <<< "sqrt(${cmb_coeffs[1]}^2 + ${cmb_coeffs[2]}^2 + ${cmb_coeffs[3]}^2)")
+	      echo "#Dipole_ampl (uK): $cmb_amp" >> $cmb_dp_path/$out_file
+	      echo "#Dipole_ampl (uK): $cmb_amp"
+
+	      $m2p cmb_c0001_k${num}_${mask_str[$j]}.fits -bar -range 250
+	  done
+
+##########################3
+
+      #map2png cmb_Cl_c0001_k$num.fits -bar -range 250
+      #map2png sz_c0001_k$num.fits sz_c0001_k${1}.png -bar -min 0 -max 1e-6
+      #patch2img -lon 270 -lat 80 -size 40 -res 4 sz_c0001_k$num.fits -grid 10 -min 0 -max 5e-6
+
+      #  echo "---- Plotting dx12 diff ----"
+      #  map_editor subtract $refmap_dx12 cmb_c0001_k$num.fits cmb_diff_dx12-npipe_k$num.fits
+      #  map2png cmb_diff_dx12-npipe_k$num.fits -bar -range 10
+
+      #  echo "---- Plotting dx11 diff ----"
+      #  map_editor subtract $refmap_dx11 cmb_c0001_k$num.fits cmb_diff_dx11-npipe_k$num.fits
+      #  map2png cmb_diff_dx11-npipe_k$num.fits -bar -range 10
+
+      echo "---- Plotting amplitudes ----"
+      map2png dust_c0001_k${num}.fits -bar -min 0 -max 1000
+      map2png synch_c0001_k${num}.fits -bar -max 1000 -min 0
+      map2png ame_c0001_k${num}.fits -bar -min 0 -max 300
+      #  map2png ame2_c0001_k${num}.fits -bar -max 300
+
+      map2png co_c0001_k${num}.fits -bar -max 2 -min 0
+      map2png co10_c0001_k${num}.fits -bar -max 2 -min 0
+      map2png co21_c0001_k${num}.fits -bar -max 2 -min 0
+      map2png co32_c0001_k${num}.fits -bar -max 2 -min 0
+
+      $me scale co10_c0001_k${num}.fits co10_c0001_k${num}_lowres_units.fits 0.090416 # 1/11.06
+      $me scale co21_c0001_k${num}.fits co21_c0001_k${num}_lowres_units.fits 0.071378 # 1/14.01
+      $me scale co32_c0001_k${num}.fits co32_c0001_k${num}_lowres_units.fits 0.081699 # 1/12.24
+
+
+      map2png co10_c0001_k${num}_lowres_units.fits co10_c0001_lowres_units_max2_k${num}.png -bar -max 2 -min 0
+      map2png co10_c0001_k${num}_lowres_units.fits co10_c0001_lowres_units_max0.2_k${num}.png -bar -max 0.2 -min 0
+      map2png co10_c0001_k${num}_lowres_units.fits co10_c0001_lowres_units_max10_k${num}.png -bar -max 10 -min 0
+      map2png co10_c0001_k${num}_lowres_units.fits co10_c0001_lowres_units_max100_k${num}.png -bar -max 100 -min 0
+      map2png co21_c0001_k${num}_lowres_units.fits co21_c0001_lowres_units_max2_k${num}.png -bar -max 2 -min 0
+      map2png co21_c0001_k${num}_lowres_units.fits co21_c0001_lowres_units_max0.2_k${num}.png -bar -max 0.2 -min 0
+      map2png co21_c0001_k${num}_lowres_units.fits co21_c0001_lowres_units_max10_k${num}.png -bar -max 10 -min 0
+      map2png co21_c0001_k${num}_lowres_units.fits co21_c0001_lowres_units_max100_k${num}.png -bar -max 100 -min 0
+      map2png co32_c0001_k${num}_lowres_units.fits co32_c0001_lowres_units_max2_k${num}.png -bar -max 2 -min 0
+      map2png co32_c0001_k${num}_lowres_units.fits co32_c0001_lowres_units_max0.2_k${num}.png -bar -max 0.2 -min 0
+      map2png co32_c0001_k${num}_lowres_units.fits co32_c0001_lowres_units_max10_k${num}.png -bar -max 10 -min 0
+      map2png co32_c0001_k${num}_lowres_units.fits co32_c0001_lowres_units_max100_k${num}.png -bar -max 100 -min 0
+
+      map2png co10_c0001_k${num}.fits co10_c0001_highres_units_max2_k${num}.png -bar -max 2 -min 0
+      map2png co10_c0001_k${num}.fits co10_c0001_highres_units_max0.2_k${num}.png -bar -max 0.2 -min 0
+      map2png co10_c0001_k${num}.fits co10_c0001_highres_units_max10_k${num}.png -bar -max 10 -min 0
+      map2png co10_c0001_k${num}.fits co10_c0001_highres_units_max100_k${num}.png -bar -max 100 -min 0
+      map2png co21_c0001_k${num}.fits co21_c0001_highres_units_max2_k${num}.png -bar -max 2 -min 0
+      map2png co21_c0001_k${num}.fits co21_c0001_highres_units_max0.2_k${num}.png -bar -max 0.2 -min 0
+      map2png co21_c0001_k${num}.fits co21_c0001_highres_units_max10_k${num}.png -bar -max 10 -min 0
+      map2png co21_c0001_k${num}.fits co21_c0001_highres_units_max100_k${num}.png -bar -max 100 -min 0
+      map2png co32_c0001_k${num}.fits co32_c0001_highres_units_max2_k${num}.png -bar -max 2 -min 0
+      map2png co32_c0001_k${num}.fits co32_c0001_highres_units_max0.2_k${num}.png -bar -max 0.2 -min 0
+      map2png co32_c0001_k${num}.fits co32_c0001_highres_units_max10_k${num}.png -bar -max 10 -min 0
+      map2png co32_c0001_k${num}.fits co32_c0001_highres_units_max100_k${num}.png -bar -max 100 -min 0
+      
+      echo "---- Plotting indices ----"
+      map2png dust_beta_c0001_k${num}.fits  -bar -min 1.3 -max 2.0
+      map2png dust_T_c0001_k${num}.fits  -bar -min 14 -max 30
+      map2png synch_beta_c0001_k${num}.fits  -bar -min -4.0 -max -1.5
+      map2png ame_nu_p_c0001_k${num}.fits  -bar -min 17 -max 23
+      #map2png ame2_nup_c0001_k${num}.fits  -bar -min 15 -max 40
+
+      map2png ff_c0001_k${num}.fits  -bar -min 0 -max 1000000
+      map2png ff_EM_c0001_k${num}.fits  -bar -min 0 -max 100
+      map2png ff_Te_c0001_k${num}.fits  -bar -min 5000 -max 8000
+      map2png hcn_c0001_k${num}.fits -bar -min 0 -max 10
+
+      echo "---- Plotting residuals ----"
+      freqs=("30" "44" "70" "100" "143" "217" "353" "545" "857" "WMAP" "Haslam")
+
+      COUNTER=0
+      for ((i=0; i<${#freqs[@]}; i++)) ; do
+	  freq=${freqs[$i]} #Frequency
+	  for file in res*${freq}*_c0001_k${num}.fits; do
+
+	      if [[ $file = *\** ]]; then #Check if contains wildcard (Map does not exist)
+		  echo "WARNING: " $file " does not exist!"
+		  continue
+	      elif [ "$freq" = "Haslam" ] || [ "$freq" = "WMAP" ]; then
+		  if [[ $file = *"n${nside_WMAP}"* ]]; then
+		      bull="true" #just some bs to make it run
+		  else
+		      continue # wrong nside
+		  fi
+	      elif [ $freq -lt 100 ]; then
+		  if [[ $file = *"n${nside_LFI}"* ]]; then
+		      bull="true" #just some bs to make it run
+		  else
+		      continue # wrong nside
+		  fi
+	      else
+		  if [[ $file = *"n${nside}"* ]]; then
+		      bull="true" #just some bs to make it run
+		  else
+		      continue # wrong nside
+		  fi
+	      fi
+
+	      if [ "$freq" = "Haslam" ] ; then
+		  map2png -bar -range 1e6 $file
+	      elif [ "$freq" = "WMAP" ] ; then
+		  map2png -bar -range 10 $file
+	      elif [ $freq == 545 ]; then
+		  map2png -bar -range 30 $file ${file/.fits/_range30.png}
+		  map2png -bar -range 300 $file ${file/.fits/_range300.png}
+	      elif  [ $freq == 857 ] ; then
+		  map2png -bar -range 3000 $file ${file/.fits/_range3k.png}
+		  map2png -bar -range 10000 $file ${file/.fits/_range10k.png}
+		  map2png -bar -range 30000 $file ${file/.fits/_range30k.png}
+	      elif  [ $freq == 353 ] ; then
+		  map2png -bar -range 30 $file ${file/.fits/_range30.png}
+		  map2png -bar -range 10 $file 
+	      elif [ $freq -lt 100 ]; then
+		  map2png -bar -range 10 $file		  
+	      else
+		  map2png -bar -range 10 $file
+	      fi
+	      echo "Plotting" $file
+	      COUNTER=$(($COUNTER +1))
+	  done
+      done
+      mx3=$((3 * $COUNTER))
+      mx6=$((6 * $COUNTER))
+      echo "---- Plotting chisq with max of" $mx3 "----"
+      map2png chisq_c0001_k${num}.fits chisq_c0001_k${num}_x3.png -bar -max $mx3 -min 0 
+      echo "---- Plotting chisq with max of" $mx6 "----"
+      map2png chisq_c0001_k${num}.fits chisq_c0001_k${num}_x6.png -bar -max $mx6 -min 0 
+      
+      
+      echo " "
+
+      for file in *k${num}.png *k${num}_range30.png *k${num}_range300.png *k${num}_range3k.png *k${num}_range10k.png *k${num}_range30k.png *k${num}_x3.png *k${num}_x6.png *k${num}_no_dp.png; do
+	  if [[ $file = *\** ]]; then #Check if contains wildcard (Map does not exist)
+	      continue
+	  fi
+	  mv $file ${file/.png/_${version}.png}
+      done
+      
+  else
+
+      map2png cmb_c0001_k${num}_n${nside}_${deg}arcmin.fits -bar -range 2500
+
+      
+      
+
+      cmb_dp_path=/mn/stornext/u3/krisjand/stornext/npipe_highres/cmb_dipole
+      chains_path=$(pwd) #getting path
+      ch_path2=(${chains_path/'npipe_highres/'/'npipe_highres '}) #splitting chains-directory from npipe_lowres path
+      ch_str=${ch_path2[1]} #getting the name of the chains-directory
+      out_file=${ch_str/chains_/}
+      out_file=cmb_print_dp_${out_file}_k${num}_n${nside}_${deg}arcmin.txt
+
+      $me subtract_mono_dipole cmb_c0001_k${num}_n${nside}_${deg}arcmin.fits $mask_dir/mask_chisq_15band_n${nside}_v2_ptsrc.fits cmb_c0001_k${num}_n${nside}_${deg}arcmin_no_dp.fits 2>&1 | tee $cmb_dp_path/$out_file
+
+      cmb_line=$(grep -F "Coefficients" $cmb_dp_path/$out_file)
+      cmb_line="${cmb_line/'Coefficients ='/}"
+      cmb_coeffs=($cmb_line)
+      cmb_amp=$(bc <<< "sqrt(${cmb_coeffs[1]}^2 + ${cmb_coeffs[2]}^2 + ${cmb_coeffs[3]}^2)")
+      echo "#Dipole magnitude (uK):"
+      echo $cmb_amp 
+
+      if [ -z $ch_str ]; then
+	  echo "Chains directory not in npipe_highres"
+      else
+	  
+	  echo "#Chain: $ch_str" >> $cmb_dp_path/$out_file
+	  echo "#Dipole magnitude (uK):" >> $cmb_dp_path/$out_file
+	  echo $cmb_amp >> $cmb_dp_path/$out_file
+      fi
+
+      map2png cmb_c0001_k${num}_n${nside}_${deg}arcmin_no_dp.fits -bar -range 250
+
+
+      #map2png cmb_Cl_c0001_k$num.fits -bar -range 250
+      #map2png sz_c0001_k$num.fits sz_c0001_k${1}.png -bar -min 0 -max 1e-6
+      #patch2img -lon 270 -lat 80 -size 40 -res 4 sz_c0001_k$num.fits -grid 10 -min 0 -max 5e-6
+
+      #  echo "---- Plotting dx12 diff ----"
+      #  map_editor subtract $refmap_dx12 cmb_c0001_k$num.fits cmb_diff_dx12-npipe_k$num.fits
+      #  map2png cmb_diff_dx12-npipe_k$num.fits -bar -range 10
+
+      #  echo "---- Plotting dx11 diff ----"
+      #  map_editor subtract $refmap_dx11 cmb_c0001_k$num.fits cmb_diff_dx11-npipe_k$num.fits
+      #  map2png cmb_diff_dx11-npipe_k$num.fits -bar -range 10
+
+      echo "---- Plotting amplitudes ----"
+      map2png dust_c0001_k${num}_n${nside}_${deg}arcmin.fits -bar -min 0 -max 1000
+      map2png synch_c0001_k${num}_n${nside}_${deg}arcmin.fits -bar -max 1000 -min 0
+      map2png ame_c0001_k${num}_n${nside}_${deg}arcmin.fits -bar -min 0 -max 300
+      #  map2png ame2_c0001_k${num}_n${nside}_${deg}arcmin.fits -bar -max 300
+
+      map2png co_c0001_k${num}_n${nside}_${deg}arcmin.fits -bar -max 2 -min 0
+      map2png co10_c0001_k${num}_n${nside}_${deg}arcmin.fits -bar -max 2 -min 0
+      map2png co21_c0001_k${num}_n${nside}_${deg}arcmin.fits -bar -max 2 -min 0
+      map2png co32_c0001_k${num}_n${nside}_${deg}arcmin.fits -bar -max 2 -min 0
+
+      $me scale co10_c0001_k${num}_n${nside}_${deg}arcmin.fits co10_c0001_k${num}_n${nside}_${deg}arcmin_lowres_units.fits 0.090416 # 1/11.06
+      $me scale co21_c0001_k${num}_n${nside}_${deg}arcmin.fits co21_c0001_k${num}_n${nside}_${deg}arcmin_lowres_units.fits 0.071378 # 1/14.01
+      $me scale co32_c0001_k${num}_n${nside}_${deg}arcmin.fits co32_c0001_k${num}_n${nside}_${deg}arcmin_lowres_units.fits 0.081699 # 1/12.24
+
+
+      map2png co10_c0001_k${num}_n${nside}_${deg}arcmin_lowres_units.fits co10_c0001_lowres_units_max2_k${num}_n${nside}_${deg}arcmin.png -bar -max 2 -min 0
+      map2png co10_c0001_k${num}_n${nside}_${deg}arcmin_lowres_units.fits co10_c0001_lowres_units_max0.2_k${num}_n${nside}_${deg}arcmin.png -bar -max 0.2 -min 0
+      map2png co10_c0001_k${num}_n${nside}_${deg}arcmin_lowres_units.fits co10_c0001_lowres_units_max10_k${num}_n${nside}_${deg}arcmin.png -bar -max 10 -min 0
+      map2png co10_c0001_k${num}_n${nside}_${deg}arcmin_lowres_units.fits co10_c0001_lowres_units_max100_k${num}_n${nside}_${deg}arcmin.png -bar -max 100 -min 0
+      map2png co21_c0001_k${num}_n${nside}_${deg}arcmin_lowres_units.fits co21_c0001_lowres_units_max2_k${num}_n${nside}_${deg}arcmin.png -bar -max 2 -min 0
+      map2png co21_c0001_k${num}_n${nside}_${deg}arcmin_lowres_units.fits co21_c0001_lowres_units_max0.2_k${num}_n${nside}_${deg}arcmin.png -bar -max 0.2 -min 0
+      map2png co21_c0001_k${num}_n${nside}_${deg}arcmin_lowres_units.fits co21_c0001_lowres_units_max10_k${num}_n${nside}_${deg}arcmin.png -bar -max 10 -min 0
+      map2png co21_c0001_k${num}_n${nside}_${deg}arcmin_lowres_units.fits co21_c0001_lowres_units_max100_k${num}_n${nside}_${deg}arcmin.png -bar -max 100 -min 0
+      map2png co32_c0001_k${num}_n${nside}_${deg}arcmin_lowres_units.fits co32_c0001_lowres_units_max2_k${num}_n${nside}_${deg}arcmin.png -bar -max 2 -min 0
+      map2png co32_c0001_k${num}_n${nside}_${deg}arcmin_lowres_units.fits co32_c0001_lowres_units_max0.2_k${num}_n${nside}_${deg}arcmin.png -bar -max 0.2 -min 0
+      map2png co32_c0001_k${num}_n${nside}_${deg}arcmin_lowres_units.fits co32_c0001_lowres_units_max10_k${num}_n${nside}_${deg}arcmin.png -bar -max 10 -min 0
+      map2png co32_c0001_k${num}_n${nside}_${deg}arcmin_lowres_units.fits co32_c0001_lowres_units_max100_k${num}_n${nside}_${deg}arcmin.png -bar -max 100 -min 0
+
+      map2png co10_c0001_k${num}_n${nside}_${deg}arcmin.fits co10_c0001_highres_units_max2_k${num}_n${nside}_${deg}arcmin.png -bar -max 2 -min 0
+      map2png co10_c0001_k${num}_n${nside}_${deg}arcmin.fits co10_c0001_highres_units_max0.2_k${num}_n${nside}_${deg}arcmin.png -bar -max 0.2 -min 0
+      map2png co10_c0001_k${num}_n${nside}_${deg}arcmin.fits co10_c0001_highres_units_max10_k${num}_n${nside}_${deg}arcmin.png -bar -max 10 -min 0
+      map2png co10_c0001_k${num}_n${nside}_${deg}arcmin.fits co10_c0001_highres_units_max100_k${num}_n${nside}_${deg}arcmin.png -bar -max 100 -min 0
+      map2png co21_c0001_k${num}_n${nside}_${deg}arcmin.fits co21_c0001_highres_units_max2_k${num}_n${nside}_${deg}arcmin.png -bar -max 2 -min 0
+      map2png co21_c0001_k${num}_n${nside}_${deg}arcmin.fits co21_c0001_highres_units_max0.2_k${num}_n${nside}_${deg}arcmin.png -bar -max 0.2 -min 0
+      map2png co21_c0001_k${num}_n${nside}_${deg}arcmin.fits co21_c0001_highres_units_max10_k${num}_n${nside}_${deg}arcmin.png -bar -max 10 -min 0
+      map2png co21_c0001_k${num}_n${nside}_${deg}arcmin.fits co21_c0001_highres_units_max100_k${num}_n${nside}_${deg}arcmin.png -bar -max 100 -min 0
+      map2png co32_c0001_k${num}_n${nside}_${deg}arcmin.fits co32_c0001_highres_units_max2_k${num}_n${nside}_${deg}arcmin.png -bar -max 2 -min 0
+      map2png co32_c0001_k${num}_n${nside}_${deg}arcmin.fits co32_c0001_highres_units_max0.2_k${num}_n${nside}_${deg}arcmin.png -bar -max 0.2 -min 0
+      map2png co32_c0001_k${num}_n${nside}_${deg}arcmin.fits co32_c0001_highres_units_max10_k${num}_n${nside}_${deg}arcmin.png -bar -max 10 -min 0
+      map2png co32_c0001_k${num}_n${nside}_${deg}arcmin.fits co32_c0001_highres_units_max100_k${num}_n${nside}_${deg}arcmin.png -bar -max 100 -min 0
+      
+      echo "---- Plotting indices ----"
+      map2png dust_beta_c0001_k${num}_n${nside}_${deg}arcmin.fits  -bar -min 1.3 -max 2.0
+      map2png dust_T_c0001_k${num}_n${nside}_${deg}arcmin.fits  -bar -min 14 -max 30
+      map2png synch_beta_c0001_k${num}_n${nside}_${deg}arcmin.fits  -bar -min -4.0 -max -1.5
+      map2png ame_nu_p_c0001_k${num}_n${nside}_${deg}arcmin.fits  -bar -min 17 -max 23
+      #  map2png ame2_nup_c0001_k${num}_n${nside}_${deg}arcmin.fits  -bar -min 15 -max 40
+
+      map2png ff_c0001_k${num}_n${nside}_${deg}arcmin.fits  -bar -min 0 -max 1e6
+      map2png ff_EM_c0001_k${num}_n${nside}_${deg}arcmin.fits  -bar -min 0 -max 100
+      map2png ff_Te_c0001_k${num}_n${nside}_${deg}arcmin.fits  -bar -min 5000 -max 8000
+      map2png hcn_c0001_k${num}_n${nside}_${deg}arcmin.fits  -bar -min 0 -max 10
+
+
+      echo "---- Plotting residuals ----"
+      freqs=("30" "44" "70" "100" "143" "217" "353" "545" "857" "WMAP" "Haslam")
+
+      COUNTER=0
+      for ((i=0; i<${#freqs[@]}; i++)) ; do
+	  freq=${freqs[$i]} #Frequency
+	  for file in res*${freq}*_c0001_k${num}_*_${deg}arcmin.fits; do
+
+	      if [[ $file = *\** ]]; then #Check if contains wildcard (Map does not exist)
+		  echo "WARNING: " $file " does not exist!"
+		  continue
+	      elif [ "$freq" = "Haslam" ] || [ "$freq" = "WMAP" ]; then
+		  if [[ $file = *"n${nside_WMAP}"* ]]; then
+		      bull="true" #just some bs to make it run
+		  else
+		      continue # wrong nside
+		  fi
+	      elif [ $freq -lt 100 ]; then
+		  if [[ $file = *"n${nside_LFI}"* ]]; then
+		      bull="true" #just some bs to make it run
+		  else
+		      continue # wrong nside
+		  fi
+	      else
+		  if [[ $file = *"n${nside}"* ]]; then
+		      bull="true" #just some bs to make it run
+		  else
+		      continue # wrong nside
+		  fi
+	      fi
+
+
+	      if [ "$freq" = "Haslam" ] ; then
+		  map2png -bar -range 1e6 $file
+	      elif [ "$freq" = "WMAP" ] ; then
+		  map2png -bar -range 10 $file
+	      elif [ $freq == 545 ]; then
+		  map2png -bar -range 30 $file ${file/.fits/_range30.png}
+		  map2png -bar -range 300 $file ${file/.fits/_range300.png}
+	      elif  [ $freq == 857 ] ; then
+		  map2png -bar -range 3000 $file ${file/.fits/_range3k.png}
+		  map2png -bar -range 10000 $file ${file/.fits/_range10k.png}
+		  map2png -bar -range 30000 $file ${file/.fits/_range30k.png}
+	      elif  [ $freq == 353 ] ; then
+		  map2png -bar -range 30 $file ${file/.fits/_range30.png}
+		  map2png -bar -range 10 $file 
+	      elif [ $freq -lt 100 ]; then
+		  map2png -bar -range 10 $file
+	      else
+		  map2png -bar -range 10 $file
+	      fi
+	      echo "Plotting" $file
+	      COUNTER=$(($COUNTER +1))
+	  done
+      done
+
+      mx3=$((3 * $COUNTER))
+      mx6=$((6 * $COUNTER))
+      echo "---- Plotting chisq with max of" $mx3 "----"
+      map2png chisq_c0001_k${num}_n${nside_chisq}_${deg}arcmin.fits chisq_c0001_k${num}_n${nside_chisq}_${deg}arcmin_x3.png -bar -max $mx3 -min 0 
+      echo "---- Plotting chisq with max of" $mx6 "----"
+      map2png chisq_c0001_k${num}_n${nside_chisq}_${deg}arcmin.fits chisq_c0001_k${num}_n${nside_chisq}_${deg}arcmin_x6.png -bar -max $mx6 -min 0 
+      
+      
+      echo " "
+
+      for file in *k${num}_n${nside}_${deg}arcmin.png *k${num}_n${nside}_${deg}arcmin_range30.png *k${num}_n${nside}_${deg}arcmin_range300.png *k${num}_n${nside}_${deg}arcmin_range3k.png *k${num}_n${nside}_${deg}arcmin_range10k.png *k${num}_n${nside}_${deg}arcmin_range30k.png *k${num}_n${nside}_${deg}arcmin_no_dp.png *k${num}_n${nside}_${deg}arcmin_x*.png; do
+	  if [[ $file = *\** ]]; then #Check if contains wildcard (Map does not exist)
+	      continue
+	  fi
+	  mv $file ${file/.png/_${version}.png}
+      done
+      if [ "$nside" = "2048" ]; then
+	  for file in *k${num}_n1024_${deg}arcmin.png *k${num}_n1024_${deg}arcmin_x3.png *k${num}_n1024_${deg}arcmin_x6.png *k${num}_n0512_${deg}arcmin.png; do
+	      if [[ $file = *\** ]]; then #Check if contains wildcard (Map does not exist)
+		  continue
+	      fi
+	      mv $file ${file/.png/_${version}.png}
+	  done
+      elif [ "$nside" = "1024" ]; then
+	  for file in *k${num}_n0512_${deg}arcmin.png; do
+	      if [[ $file = *\** ]]; then #Check if contains wildcard (Map does not exist)
+		  continue
+	      fi
+	      mv $file ${file/.png/_${version}.png}
+	  done
+      fi
+  fi
+done
+

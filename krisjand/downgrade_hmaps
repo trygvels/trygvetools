@@ -1,0 +1,80 @@
+#!/bin/bash
+
+if [ $# -ne 1 ] || [ "$!" = "help" ]; then
+    echo ""
+    echo "Syntax: ...hmaps [string with nside of new maps]"
+    echo ""
+    echo ""
+    exit
+elif [[ $1 = *"."* ]]; then
+    echo ""
+    echo "Nside must be whole numbers"
+    echo ""
+    exit
+fi
+
+me=/mn/stornext/u3/krisjand/quiet_svn/oslo/src/f90/map_editor/map_editor
+
+freqs=("30" "44" "70" "100" "143" "217" "353" "545" "857")
+
+
+nside_out=($1)
+echo "Checking nside out"
+echo ""
+for ((i=0; i<${#nside_out[@]}; i++)); do
+    temp1=$(printf '%5d' ${nside_out[$i]})
+
+    if [ ${nside_out[$i]} -lt 1 ] || [ ${nside_out[$i]} -gt 1024 ]; then
+	echo "'nside out' (${nside_out[$i]}) must be a power of 2, 1 <= nside <= 1024"
+	exit
+    elif [ $temp1 == 1 ]; then
+	echo "nside_out = 1"
+    else
+	while [ $temp1 -gt 1 ]; do
+	    if [ $(($temp1 % 2)) == 0 ]; then
+		temp1=$(($temp1/2))
+	    else
+		echo "'nside out' (${nside_out[$i]}) must be a power of 2, 1 <= nside <= 1024"
+		exit
+	    fi
+	done
+	
+    fi
+    nside_out_str[$i]=$(printf "%04d" ${nside_out[$i]})
+done
+
+for ((i=0; i<${#freqs[@]}; i++)) ; do
+    freq=${freqs[$i]}
+    echo ""
+    echo "-----------------------------------------"
+    echo "Downgrading freq: $freq"
+    for infile in *${freq}*hmap.fits; do
+	echo "-------------------------------------------"
+	echo "input map: $infile"
+	if [ $freq -lt 100 ];then
+	    nside_full=1024
+	else
+	    nside_full=2048
+	fi
+
+	for ((j=0; j<${#nside_out[@]}; j++)) ; do
+	    ns_out=${nside_out[$j]}
+	    scale_diff=$(($nside_full/$ns_out))
+	    if [ $scale_diff -eq 1 ];then
+		continue
+	    fi
+	    nside_str=$(printf "%04d" $ns_out)
+	    outfile=${infile/hmap/hmap_n${nside_str}}
+	    scale_sq=$(($scale_diff * $scale_diff))
+	    echo "nside_out = "$ns_out
+	    echo "output file = "$outfile
+	    echo "scale_diff = "$scale_diff
+	    echo "scale_sq = "$scale_sq
+	    echo ""
+
+	    $me ud_grade $infile $ns_out bull.fits
+	    $me scale bull.fits $outfile $scale_sq
+	    rm bull.fits
+	done
+    done
+done

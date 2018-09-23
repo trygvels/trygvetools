@@ -161,7 +161,7 @@ cp "$base"/ame1_alpha_c0001_k"$cont".fits data/ame1_alpha_init_"$tag".fits
 sed -i "s,^\(INIT_INDEX_MAP08_02[ ]*= \).*,\1'data/ame1_alpha_init_"$tag".fits',g" $inparam #ame
 
 
-cp "$base"/hcn_c0001_k"$cont".fits data/hcn_init_"$tag".fits
+p "$base"/hcn_c0001_k"$cont".fits data/hcn_init_"$tag".fits
 sed -i "s,^\(INITIAL_AMPLITUDE_MAP09[ ]*= \).*,\1'data/hcn_init_"$tag".fits',g" $inparam #hcn
 
 cp "$base"/hcn_W2_c0001_k"$cont".fits data/hcn-W2_init_"$tag".fits

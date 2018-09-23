@@ -1,28 +1,8 @@
 #!/bin/bash
-read -p "Degree: [40/60] " deg
-read -p "nside: [64/256] " nside
-#nside=64
-if [ "$nside" = "256" ]; then
-  if [ "$deg" = "60" ]; then
-    refmap_dx12=~/master/cdata/like/refmap/refmap_cmb_dx12_cl_v2_n0256_60arcmin_k00800_MDCOR.fits
-    refmap_dx11=~/master/cdata/like/refmap/refmap_cmb_dx11_cl_v3.3_n0256_60arcmin_k00290_MDCOR.fits
-  else
-    refmap_dx12=~/master/cdata/like/refmap/refmap_cmb_dx12_cl_v2_n0256_k00800_MDCOR.fits
-    refmap_dx11=~/master/cdata/like/refmap/refmap_cmb_dx11_cl_v3.3_n0256_k00290_MDCOR.fits
-  fi
-else
-  if [ "$deg" = "60" ]; then
-    refmap_dx12=~/master/cdata/like/refmap/refmap_cmb_dx12_cl_v2_n0064_60arcmin_k00800_MDCOR.fits
-    refmap_dx11=~/master/cdata/like/refmap/refmap_cmb_dx11_cl_v3.3_n0064_60arcmin_k00290_MDCOR.fits
-  else
-    refmap_dx12=~/master/cdata/like/refmap/refmap_cmb_dx12_cl_v2_n0064_k00800_MDCOR.fits
-    refmap_dx11=~/master/cdata/like/refmap/refmap_cmb_dx11_cl_v3.3_n0064_k00290_MDCOR.fits
-  fi
-fi
-
-#Refmaps for dx12 and 11 (with dipole)
-#refmap_dx12=~/master/cdata/like/refmap/refmap_cmb_dx12_cl_v2_n0256_k00800.fits 
-#refmap_dx11=~/master/cdata/like/refmap/refmap_cmb_dx11_cl_v3.3_n0256_k00290.fits
+map_editor=/mn/stornext/u3/hke/owl/quiet_svn/oslo/src/f90/map_editor/map_editor
+#read -p "Plot chisq per map? [enter if no]" chisqplot
+# mask="/uio/hume/student-u68/trygvels/master/cdata/like/npipe5v21/data/commander_dx12_mask_n0256_likelihood_v2.fits"
+mask="/mn/stornext/u3/trygvels/compsep/cdata/like/npipe5v21/data/commander_dx12_mask_n0064_likelihood_v2.fits"
 
 if [ $# -lt 1 ]; then
   echo "plot_maps [sample number]"
@@ -35,53 +15,60 @@ for n in $@; do
   echo "_____ Plotting sample $n _____"
   num=$(printf "%05d\n" $n)
   echo "---- Plotting CMB ----"
-  map2png cmb_c0001_k$num.fits -bar -range 250
-
+  
+  $map_editor subtract_mono_dipole cmb_c0001_k$num.fits $mask cmb_nodip_k$num.fits >> temp.txt                                
+  map2png cmb_nodip_k$num.fits -bar -range 250
+  map2png cmb_c0001_k$num.fits cmb_k$num.png -bar -range 250
+  cmb_line=$(grep -F "Coefficients" temp.txt)
+  cmb_line="${cmb_line/'Coefficients ='/}"
+  cmb_coeffs=($cmb_line)
+  cmb_amp=$(bc <<< "sqrt(${cmb_coeffs[1]}^2 + ${cmb_coeffs[2]}^2 + ${cmb_coeffs[3]}^2)")
+  echo "Dipole amplitude (uK):" $cmb_amp 
+  echo "Dipole amplitude (uK):" $cmb_amp ", sample: " $num >> dipole_amp.txt
+  rm temp.txt
   #map2png cmb_Cl_c0001_k$num.fits -bar -range 250
-  #map2png sz_c0001_k$num.fits sz_c0001_k${1}.png -bar -min 0 -max 1e-6
   #patch2img -lon 270 -lat 80 -size 40 -res 4 sz_c0001_k$num.fits -grid 10 -min 0 -max 5e-6
 
-  echo "---- Plotting dx12 diff ----"
-  map_editor subtract $refmap_dx12 cmb_c0001_k$num.fits cmb_diff_dx12-npipe_k$num.fits
-  map2png cmb_diff_dx12-npipe_k$num.fits -bar -range 10
-
-  echo "---- Plotting dx11 diff ----"
-  map_editor subtract $refmap_dx11 cmb_c0001_k$num.fits cmb_diff_dx11-npipe_k$num.fits
-  map2png cmb_diff_dx11-npipe_k$num.fits -bar -range 10
-
   echo "---- Plotting amplitudes ----"
-  map2png dust_c0001_k$num.fits -bar -max 1000
-  map2png synch_c0001_k$num.fits -bar -max 1000 -min 0
-  map2png ame1_c0001_k$num.fits -bar -max 300
-  map2png ame2_c0001_k$num.fits -bar -max 300
+  map2png dust_c0001_k$num.fits comp_dust_k$num.png -bar -max 1000
+  map2png synch_c0001_k$num.fits comp_synch_k$num.png -bar -min 0 -max 1e8 #5e1
+  map2png ame1_c0001_k$num.fits comp_ame1_k$num.png -bar -max 300
+  map2png ame2_c0001_k$num.fits comp_ame2_k$num.png -bar -max 300
+  map2png free-free_c0001_k$num.fits comp_ff_k$num.png -bar -min 0 -max 2
+  map2png ff_c0001_k$num.fits comp_ff_k$num.png -bar -min 0 -max 1e3
 
-  map2png co_c0001_k$num.fits -bar -max 2 -min 0
-  map2png co-100_c0001_k$num.fits -bar -max 2 -min 0
-  map2png co-217_c0001_k$num.fits -bar -max 2 -min 0
-  map2png co-353_c0001_k$num.fits -bar -max 2 -min 0
+  map2png hcn_c0001_k$num.fits comp_hcn_k$num.png -bar -min 0 -max 2
+
+  map2png co_c0001_k$num.fits comp_co_k$num.png -bar -min 0 -max 2
+  map2png co-100_c0001_k$num.fits comp_co-100_k$num.png -bar -max 4 -min 0
+  map2png co-217_c0001_k$num.fits comp_co-217_k$num.png -bar -max 2 -min 0
+  map2png co-353_c0001_k$num.fits comp_co-353_k$num.png -bar -max 0.5 -min 0
   #map2png co10_c0001_k$num.fits -bar -max 2 -min 0
   #map2png co21_c0001_k$num.fits -bar -max 2 -min 0
   #map2png co32_c0001_k$num.fits -bar -max 2 -min 0
   #map2png hcn_c0001_k$num.fits -bar -max 1 -min 0
 
   echo "---- Plotting indices ----"
-  map2png dust_beta_c0001_k$num.fits  -bar -min 1.3 -max 2.0
-  map2png dust_Td_c0001_k$num.fits  -bar -min 14 -max 30
+  map2png dust_beta_c0001_k$num.fits comp_dust_beta_k$num.png  -bar -min 1.3 -max 2.0
+  map2png dust_Td_c0001_k$num.fits comp_dust_Td_k$num.png -bar -min 14 -max 30
   #map2png dust_Td_c0001_k$num_nosmooth.fits  -bar -min 14 -max 30
-  map2png synch_beta_c0001_k$num.fits  -bar -min -4.0 -max -1.5
-  map2png ame1_nup_c0001_k$num.fits  -bar -min 17 -max 23
-  map2png ame2_nup_c0001_k$num.fits  -bar -min 15 -max 40
+  map2png synch_beta_c0001_k$num.fits comp_synch_beta_k$num.png -bar -min -4.0 -max -1.5
+  map2png ame1_nup_c0001_k$num.fits comp_ame1_nup_k$num.png -bar -min 17 -max 23
+  map2png ame2_nup_c0001_k$num.fits comp_ame2_nup_k$num.png -bar -min 15 -max 40
+  map2png ame1_alpha_c0001_k$num.fits comp_ame1_alpha_k$num.png -bar -range 1
 
-  map2png ff_EM_c0001_k$num.fits  -bar -min 0 -max 100
-  map2png ff_T_e_c0001_k$num.fits  -bar -min 5000 -max 8000
+  map2png free-free_beta_c0001_k$num.fits comp_ff_beta_k$num.png -bar 
+  map2png ff_EM_c0001_k$num.fits comp_ff_EM_k$num.png -bar -min 0 -max 100
+  map2png ff_T_e_c0001_k$num.fits comp_ff_T_e_k$num.png -bar -min 5000 -max 8000
 
 
   echo "---- Plotting residuals ----"
-  freqs=("30" "44" "70" "100" "143" "217" "353" "545" "857" "WMAP" "Haslam")
+  freqs=("30" "44" "70" "100" "143" "217" "353" "545" "857" "WMAP" "Haslam" "1250" "2140" "3000")
 
   COUNTER=0
   for ((i=0; i<${#freqs[@]}; i++)) ; do
     freq=${freqs[$i]} #Frequency
+    	  
     for file in res*${freq}*_c01_k$num.fits; do
 
       if [[ $file = *\** ]]; then #Check if contains wildcard (Map does not exist)
@@ -89,10 +76,21 @@ for n in $@; do
         continue
       fi
 
-      if [ $freq == 545 ] || [ $freq == 857 ] ; then
-        map2png -bar -range 1e-2 $file
+      if [ $freq == 545 ]; then
+        map2png -bar -range 100 $file
+      elif [ $freq == 857 ]; then
+	map2png -bar -range 10000 $file
       elif [ "$freq" = "Haslam" ] ; then
-        map2png -bar -range 1e6 $file
+          map2png -bar -range 1e4 $file
+      elif [ $freq == 1250 ]; then
+	lol=${file/residual_/residual_9-}
+	map2png $file ${lol/fits/png} -bar -range 2
+      elif [ $freq == 2140 ]; then
+        lol=${file/residual_/residual_9-}
+	map2png $file ${lol/fits/png} -bar -range 2
+      elif [ $freq == 3000 ]; then
+	lol=${file/residual_/residual_9-}
+	map2png $file ${lol/fits/png} -bar -range 2
       else
         map2png -bar -range 10 $file
       fi
@@ -100,8 +98,25 @@ for n in $@; do
       COUNTER=$[$COUNTER +1]
     done
   done
-
+  COUNTER=$[$COUNTER -1]
   mx=$((2 * $COUNTER))
+
+  echo "---- Plotting chisq per map ----"
+  if [[ $chisqplot ]]; then
+    for ((i=0; i<${#freqs[@]}; i++)) ; do
+	freq=${freqs[$i]} #Frequency
+
+	for file in chisq_*${freq}*_c01_k$num.fits; do
+	    if [[ $file = *\** ]]; then #Check if contains wildcard (Map does not exist)
+		echo "WARNING: " $file " does not exist!"
+		continue
+	    fi
+	    echo "plotting" ${file/_c01_k$num.fits/.png}
+	    map2png $file ${file/_c01_k$num.fits/.png} -bar -max 3 -min 0 #max is 2*numband
+	done
+    done
+  fi
+
   echo "---- Plotting chisq with max of" $mx "----"
   map2png chisq_c0001_k$num.fits chisq_k$num.png -bar -max $mx -min 0 #max is 2*numband
   echo " "

@@ -1,0 +1,138 @@
+#!/bin/bash
+
+# from mdc bash script
+# here we only subtract the quadrupole, and let the dipole stay in the maps
+
+me=/mn/stornext/u3/krisjand/quiet_svn/oslo/src/f90/map_editor/map_editor
+quad_dir=/mn/stornext/u3/krisjand/stornext/dipolemaps
+
+
+freqs=("30" "44" "70" "100" "143" "217" "353" "545" "857")
+#gains for quadpole correction and all amps in uK. 857 show a gain on ~1.55
+gainz=("1.000000" "1.000000" "1.000000" "1.000000" "1.000000" "1.000000" "1.000000" "1.000000" "1.000000")
+
+#single freq.
+#LFI
+#freqs=("30" "44" "70")
+#gainz=("1.000000" "1.000000" "1.000000")
+
+#HFI
+#freqs=("100" "143" "217" "353" "545" "857")
+#gainz=("1.000000" "1.000000" "1.000000" "1.000000" "1.000000" "1.000000")
+
+#freqs=("30" "44" "70" "100" "217")
+#gainz=("1.000000" "1.000000" "1.000000" "1.000000" "1.000000")
+
+#freqs=("143" "353" "545" "857")
+#gainz=("1.000000" "1.000000" "1.000000" "1.000000")
+
+#freqs=("44")
+#freqs=("143")
+#gainz=("1.000000")
+
+
+if [ $# -ne 3 ]; then
+    echo ""
+    echo "Syntax: ...fullres [inputmap dir] [output dir (from input dir)] [npipe version]"
+    echo ""
+    echo "e.g. (from npipe6v0): ..fullres single/ QUADCOR/ npipe6v0"
+    echo ""
+    exit
+fi
+
+if [ "${1:$((${#1}-2)):2}" = "./" ]; then
+    inmap_dir=$(pwd)
+elif [ "${1:$((${#1}-1)):1}" = "/" ]; then
+    inmap_dir="${1:0:$((${#1}-1))}"
+else
+    inmap_dir="${1}"
+fi
+
+if [ "${2:$((${#2}-1)):1}" = "/" ]; then
+    out_dir="${2:0:$((${#2}-1))}"
+else
+    out_dir="${2}"
+fi
+
+npipe_v=$3
+
+curr_path=$(pwd)
+echo "Current path: $curr_path"
+if [ "$inmap_dir" = "curr_path" ]; then
+    echo ""
+else
+    echo "Moving from current path into $inmap_dir"
+    echo ""
+fi
+cd $inmap_dir
+
+echo "Output directory: $out_dir"
+echo ""
+
+for ((i=0; i<${#freqs[@]}; i++)) ; do
+  freq=${freqs[$i]} #Frequency
+  echo
+  g=${gainz[$i]} #Gain for quadrupole multiplication
+
+  for inputmap in "${npipe_v}"*${freq}*"_map_K.fits" "${npipe_v}"*${freq}*"_bmap_K.fits" "${npipe_v}"*${freq}*"corrected_K.fits"; do  # input maps (nside 256), with directory
+
+
+      if [[ $inputmap = *\** ]]; then #Check if contains wildcard (Map does not exist)
+        echo "WARNING: " $inputmap " does not exist!"
+        continue
+      fi
+
+    echo "----------------------------------------------------------------------------------"
+
+    $me size_info $inputmap > size_info.txt
+    line=$(grep -F "nside" size_info.txt)
+    a_line=($line)
+    nside=${a_line[0])}
+    nmaps=${a_line[3])}
+    ordering=${a_line[6])}
+
+    outputname="QUADCOR_n${nside}"
+
+    echo "Frequency: " ${freq}
+    echo "Input map: " ${inputmap}
+    echo "nside = $nside"
+    echo "nmaps = $nmaps"
+    echo "ordering = $ordering"
+    out_map=${inputmap/map/map_${outputname}}
+    out_map=${out_map/_K.fits/_uK.fits}
+    echo "Output map: $out_map"
+    echo "Using gain for quadrupole" $g
+    echo "----------------------------------------------------------------------------------"
+    if [ -r $out_dir/${out_map} ]; then
+	continue
+    fi
+    #quadrupole map to subtract from map
+    quadmap="${quad_dir}/quadrupole_CMB_n"$nside"_"${freq}"GHz_K.fits"
+
+    #-------------------- SUBTRACT DIPOLE MAP ----------------------
+    echo "Scaling quadrupole map with gain"
+
+    $me scale $quadmap quadmap.fits $g #Adjusting with quad gain
+    echo "Subtracting with quadrupole map:" ${quadmap/'${quad_dir}/'/}
+    $me subtract ${inputmap} quadmap.fits $out_dir/${out_map} 
+    echo "Scaling output map to uK"
+    $me scale $out_dir/${out_map} $out_dir/${out_map} 1e6
+
+    echo "Plotting output map"
+    if [ $freq == 857 ] ; then
+	map2png $out_dir/${out_map} -bar -min 0 -max 4000000
+    elif  [ $freq == 545 ] ; then
+	map2png $out_dir/${out_map} -bar -min 0 -max 40000
+    elif  [ $freq == 353 ] ; then
+	map2png $out_dir/${out_map} -bar -min 0 -max 3000
+    else
+	map2png $out_dir/${out_map} -bar -min 0 -max 300
+    fi
+    rm quadmap.fits 2>/dev/null
+    rm fit_gain_temp.txt 2>/dev/null
+    rm residual.fits 2>/dev/null
+    rm size_info.txt 2>/dev/null
+  done
+done
+
+cd $curr_path

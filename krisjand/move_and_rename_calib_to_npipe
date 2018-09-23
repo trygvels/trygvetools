@@ -1,0 +1,86 @@
+#!/bin/bash
+
+npipeLFI=$1
+npipeHFI=$2
+
+output_dir=~/stornext/npipe_highres/data_npipe/
+
+HFImaps=(
+"calibrated_iter02_100-1a_bmap_MDCOR.fits"
+"calibrated_iter02_100-1b_bmap_MDCOR.fits"
+"calibrated_iter02_100-1_bmap_MDCOR.fits"
+"calibrated_iter02_100-2a_bmap_MDCOR.fits"
+"calibrated_iter02_100-2b_bmap_MDCOR.fits"
+"calibrated_iter02_100-2_bmap_MDCOR.fits"
+"calibrated_iter02_100-3a_bmap_MDCOR.fits"
+"calibrated_iter02_100-3b_bmap_MDCOR.fits"
+"calibrated_iter02_100-3_bmap_MDCOR.fits"
+"calibrated_iter02_100-4a_bmap_MDCOR.fits"
+"calibrated_iter02_100-4b_bmap_MDCOR.fits"
+"calibrated_iter02_100-4_bmap_MDCOR.fits"
+"calibrated_iter02_217-1_bmap_MDCOR.fits"
+"calibrated_iter02_217-2_bmap_MDCOR.fits"
+"calibrated_iter02_217-3_bmap_MDCOR.fits"
+"calibrated_iter02_217-4_bmap_MDCOR.fits"
+"calibrated_iter02_217-5a_bmap_MDCOR.fits"
+"calibrated_iter02_217-5b_bmap_MDCOR.fits"
+"calibrated_iter02_217-5_bmap_MDCOR.fits"
+"calibrated_iter02_217-6a_bmap_MDCOR.fits"
+"calibrated_iter02_217-6b_bmap_MDCOR.fits"
+"calibrated_iter02_217-6_bmap_MDCOR.fits"
+"calibrated_iter02_217-7a_bmap_MDCOR.fits"
+"calibrated_iter02_217-7b_bmap_MDCOR.fits"
+"calibrated_iter02_217-7_bmap_MDCOR.fits"
+"calibrated_iter02_217-8a_bmap_MDCOR.fits"
+"calibrated_iter02_217-8b_bmap_MDCOR.fits"
+"calibrated_iter02_217-8_bmap_MDCOR.fits"
+"calibrated_iter02_353-1_bmap_MDCOR.fits"
+"calibrated_iter02_353-2_bmap_MDCOR.fits"
+"calibrated_iter02_353-3a_bmap_MDCOR.fits"
+"calibrated_iter02_353-3b_bmap_MDCOR.fits"
+"calibrated_iter02_353-3_bmap_MDCOR.fits"
+"calibrated_iter02_353-4a_bmap_MDCOR.fits"
+"calibrated_iter02_353-4b_bmap_MDCOR.fits"
+"calibrated_iter02_353-4_bmap_MDCOR.fits"
+"calibrated_iter02_353-5a_bmap_MDCOR.fits"
+"calibrated_iter02_353-5b_bmap_MDCOR.fits"
+"calibrated_iter02_353-5_bmap_MDCOR.fits"
+"calibrated_iter02_353-6a_bmap_MDCOR.fits"
+"calibrated_iter02_353-6b_bmap_MDCOR.fits"
+"calibrated_iter02_353-6_bmap_MDCOR.fits"
+"calibrated_iter02_353-7_bmap_MDCOR.fits"
+"calibrated_iter02_353-8_bmap_MDCOR.fits"
+)
+
+HFImaps2=(
+"npipe"$2"_143_map_MDCOR.fits"
+"npipe"$2"_545-1_map_MDCOR.fits"
+"npipe"$2"_545-2_map_MDCOR.fits"
+"npipe"$2"_545-4_map_MDCOR.fits"
+"npipe"$2"_857-1_map_MDCOR.fits"
+"npipe"$2"_857-2_map_MDCOR.fits"
+"npipe"$2"_857-3_map_MDCOR.fits"
+"npipe"$2"_857-4_map_MDCOR.fits"
+)
+
+LFImaps=(
+"npipe"$1"_030_map_MDCOR.fits"
+"npipe"$1"_044_map_MDCOR.fits"
+"npipe"$1"_070_map_MDCOR.fits"
+)
+
+
+for i in ${!HFImaps[@]}; do
+    cp ${HFImaps[$i]} $output_dir
+    mv $output_dir${HFImaps[$i]} $output_dir${HFImaps[$i]/calibrated_iter02/npipe$2}
+done
+
+for i in ${!HFImaps2[@]}; do
+    cp ${HFImaps2[$i]} $output_dir
+done
+
+for i in ${!LFImaps[@]}; do
+    cp ${LFImaps[$i]} $output_dir
+done
+
+

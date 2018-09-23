@@ -1,0 +1,76 @@
+#!/bin/bash
+map_editor=/mn/stornext/u3/hke/owl/quiet_svn/oslo/src/f90/map_editor/map_editor
+
+freqs=("30" "44" "70" "100" "143" "217" "353" "545" "857")
+
+masks=("/uio/hume/student-u68/trygvels/master/cdata/like/npipe5v21/data/commander_dx12_mask_n0256_likelihood_v2.fits"
+"/uio/hume/student-u68/trygvels/master/cdata/like/npipe5v21/data/commander_dx12_mask_n1024_likelihood_v2.fits"
+"/uio/hume/student-u68/trygvels/master/cdata/like/npipe5v21/data/commander_dx12_mask_n2048_likelihood_v2.fits")
+
+masksfullsky=("/uio/hume/student-u68/trygvels/master/cdata/like/npipe5v21/data/mask_fullsky_n256.fits"
+"/uio/hume/student-u68/trygvels/master/cdata/like/npipe5v21/data/mask_fullsky_n1024.fits"
+"/uio/hume/student-u68/trygvels/master/cdata/like/npipe5v21/data/mask_fullsky_n2048.fits")
+
+rm monopoles.dat
+
+for ((i=0; i<${#freqs[@]}; i++)) ; do
+  freq=${freqs[$i]} #Frequency
+  echo
+  g=${gainz[$i]} #Gain for dipole multiplication
+  adjmap="/uio/hume/student-u68/trygvels/master/cdata/like/dx12/map_dx12_"*${freq}"_0256_40arcmin_full.fits" #Map to adjust to
+  for inputmap in "npipe5v21"*${freq}*"0256"*"40arcmin"*".fits"; do
+  #for inputmap in "calibrated_n0256_"${freq}*"_map.fits"; do
+    echo "----------------------------------------------------------------------------------"
+    echo "Frequency: " ${freq}
+    echo "Input map: " ${inputmap}
+    echo "Adjusting with: " ${adjmap}
+    echo "----------------------------------------------------------------------------------"
+    
+    j=0
+    nside=0256
+    #-------------------- FIT GAIN OFFSET - GET GAIN AND OFFSET ----------------------
+    $map_editor fit_gain_offset_dipole ${adjmap} ${inputmap} ${masksfullsky[$j]} ${masks[$j]} residual.fits 2>/dev/null > fit_gain_temp.txt #save output and ignore error
+
+    # EXTRACT OFFSET OUTPUT
+    tr -s '[:space:]' < fit_gain_temp.txt # Remove double spaces
+    offset=($(tail -n 1 fit_gain_temp.txt | grep -oP '(?<=offset\ =\ ).*'))
+    # EXTRACT GAIN OUTPUT (NOT NEEDED)
+    gain=$(tail -n 1 fit_gain_temp.txt | grep -oP '(?<=gain\ =\ ).*(?=,)')
+    gain=$(bc -l <<< "1/$gain") # 1/gain calculator
+
+    echo "gain: $gain offset:  ${offset[0]} ${offset[1]} ${offset[2]} ${offset[3]}"
+
+    offset=$(echo -"($offset)" | bc -l) # Invert offset
+    $map_editor add_offset $inputmap ${inputmap/.fits/_uK.fits} 0 #$offset
+    
+    #Scale 545 and 857 from K to uK. All other maps are initially uK (should be done here)
+    if [ $freq == 545 ] || [ $freq == 857 ] ; then
+        $map_editor scale ${inputmap/.fits/_uK.fits} ${inputmap/.fits/_uK.fits} 1e6
+        file=${inputmap/.fits/_uK.fits}
+	#offset=$((10**6*$offset)) #convert monopole to uK
+    else
+        $map_editor scale ${inputmap/.fits/_uK.fits} ${inputmap/.fits/_uK.fits} 1
+        file=${inputmap/.fits/_uK.fits}
+    fi
+    
+    #Save monopole offset to file
+    echo $file $offset >> monopoles.dat
+    
+    #-------------------- Smooth and ud_grade
+    #Smoothing
+    $map_editor smooth g2g ${file} 0 750 256 40 60 ${file/40arcmin/60arcmin}
+    
+    #ud_grade
+    file2=${file/40arcmin/60arcmin}
+    $map_editor ud_grade $file2 64 ${file2/256/064}
+
+    
+    #Plotting sky maps
+    file3=${file2/256/064}
+    map2png ${file3} -bar -min 0 -max 300
+    
+    rm dipolemap_muK.fits 2>/dev/null
+    rm fit_gain_temp.txt 2>/dev/null
+    rm residual.fits 2>/dev/null
+  done
+done

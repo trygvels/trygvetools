@@ -1,0 +1,156 @@
+#!/bin/bash
+
+me=/mn/stornext/u3/krisjand/quiet_svn/oslo/src/f90/map_editor/map_editor
+
+if [ $# -ne 6 ] || [ "$1" = "help" ]; then
+   echo ""
+   echo "Syntax: adjust_gain_yemp_amp_comm1 [old gain] [difference gainfile]"
+   echo "  [old temp_amp] [difference temp_amp] [gain ref band] [npipe version]"
+   echo ""
+   echo "e.g. adjust_gain_yemp_amp_comm1 gain_no0001.dat gain_fits_npipe6v19_vs_npipe5v21.dat temp_amp_k000001.dat mono_fits_npipe6v19_vs_npipe5v21.dat 143 npipe6v19"
+   echo ""
+   echo "Note: The gain file must be from the same sample/chain as the temp_amp file"
+   echo "      This is so that the band positions in the gain and temp files match"
+   echo ""
+   exit
+fi
+
+old_gain_file=$1
+gain_diff_file=$2
+old_temp_file=$3
+temp_diff_file=$4
+ref_band=$5
+npipe=$6
+
+out_gain=gain_init_${npipe}.dat
+out_temp=temp_amp_init_${npipe}.dat
+
+
+count=-1 
+while IFS=' ' read -r -a line; do
+    line=$(echo $line | tr " " "\n")
+    count=$(($count +1))
+    #echo ${line[0]}
+    l0=${line[0]}
+    bands[$count]=$l0
+    #echo $l0 #, ${freq[$count]}
+    #echo 1, $l0
+    l1=${line[1]}
+    temp_amp[$count]=$l1
+    
+done < $old_temp_file
+
+
+
+
+gains=$(tail -n 1 $old_gain_file)
+a_gain=($gains)
+sample=${a_gain[0]}
+gains="${gains/${a_gain[0]}}" #to remove sample from index 0
+gains=($gains)
+
+#we want to scale the old gains with the new diff. Then we must scale them so that the 
+#reference band has a gain of 1.000000 (i.e. divide by new gain of ref band).
+
+#furthermore, the difference in offset is givene in units (gains) of the new maps. We must
+#therefore scale the old offsets (if the difference in gains are too far off 1.00, say 1%)
+#If the diff in gains of ref band (and any other band) is < +-1% we don't care for adjusting
+#offsets for the given bands. Most applicable bands for scaling is likely 857 GHz.
+ref_gain=0.0
+
+for ((i=0; i<${#bands[@]}; i++)); do
+    line=$(grep -F "${bands[$i]} " $gain_diff_file)
+    a_line=($line)
+    if [ "${a_line[0]}" = "${bands[$i]}" ]; then
+	gain_diff[$i]=${a_line[1]}
+    else
+	echo "Missing gain difference, band ${bands[$i]}"
+	exit
+    fi
+
+    low_test=$(echo "(${gain_diff[$i]} - 0.99)*1000000/1" | bc)
+    high_test=$(echo "(1.01 - ${gain_diff[$i]})*1000000/1" | bc)
+    if [ $low_test -lt 0 ] || [ $high_test -lt 0 ]; then
+	temp_amp[$i]=$(echo "${gain_diff[$i]}*${temp_amp[$i]}" | bc)
+    fi
+    
+    line=$(grep -F "${bands[$i]} " $temp_diff_file)
+    a_line=($line)
+    if [ "${a_line[0]}" = "${bands[$i]}" ]; then
+	temp_diff[$i]=${a_line[1]}
+    else
+	echo "Missing temp_amp difference, band ${bands[$i]}"
+	exit
+    fi
+
+    temp_amp_new[$i]=$(echo "${temp_amp[$i]} + ${temp_diff[$i]}" | bc)
+    gains_new[$i]=$(echo "${gains[$i]}*${gain_diff[$i]}" | bc)
+    if [ "${bands[$i]}" = "$ref_band" ]; then
+	ref_gain=${gains_new[$i]}
+    fi
+
+done
+
+if [ "$ref_gain" = "0.0" ]; then
+    echo "No reference gain found"
+    exit
+fi
+
+for ((i=0; i<${#bands[@]}; i++)) ; do
+    echo "Band          ${bands[$i]}"
+    echo "ref_gain      $ref_gain"
+    echo "old gain      ${gains[$i]}"
+    echo "new gain      ${gains_new[$i]}"
+    gains_new[$i]=$(echo "scale=7; ${gains_new[$i]}/${ref_gain}" | bc)
+    echo "new gain/ref  ${gains_new[$i]}"
+    echo ""
+    echo "new temp_amp  ${temp_amp_new[$i]}"
+    temp_amp_new[$i]=$(echo "scale=3; ${temp_amp_new[$i]}/1" | bc)
+    echo "new temp_amp  ${temp_amp_new[$i]}"
+    echo ""
+done
+
+
+line=$(grep -F "Sample" $old_gain_file)
+a_line=($line)
+
+printf "# Sample" > $out_gain
+for i in ${!a_line[@]}; do
+    if [ $i -lt 2 ]; then
+	continue
+    elif [ $i -eq 2 ]; then
+	printf "%8s" ${a_line[$i]} >> $out_gain
+    else
+	printf "%13s" ${a_line[$i]} >> $out_gain
+    fi
+done
+printf "\n" >> $out_gain
+line="$sample ${gains_new[@]}"
+a_line=($line)
+for i in ${!a_line[@]}; do
+    if [ $i -lt 1 ]; then
+        printf "%7s" ${a_line[$i]} >> $out_gain
+    else
+	printf "%13s" ${a_line[$i]} >> $out_gain
+    fi
+done
+printf "\n" >> $out_gain
+
+
+
+rm $out_temp
+
+count=-1 
+while IFS=' ' read -r -a line; do
+    line=$(echo $line | tr " " "\n")
+    count=$(($count +1))
+    #echo ${line[0]}
+    l0=${line[0]}
+    l1=${line[1]}
+    l2=${line[2]}
+    l3=${line[3]}
+    l4=${line[4]}
+    l5=${line[5]}
+
+    printf "%8s %14s %14s %14s %14s %14s \n"  $l0 ${temp_amp_new[$count]} $l2 $l3 $l4 $l5 >> $out_temp   
+done < $old_temp_file

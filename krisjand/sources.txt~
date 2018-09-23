@@ -1,0 +1,9 @@
+ #  Galactic coordinates | radius of source | optional comment 
+ #  Lat (deg)  Lon (deg)   radius (arcmin)
+    -6.341      185.32       80.0              source1 
+   -17.723      121.64       60.0              source2 
+    57.02        83.1       120.0              source3
+    77.02        33.1       200.0              source4
+   -67.02       123.1       300.0              source5
+     5.0        276.0        90.0              source6
+   -13.0          0.0        70.0              source7

@@ -1,0 +1,15 @@
+#!/bin/bash
+printf "#" > test2_out.dat
+#printf "#" > test2_out.dat
+while IFS="" read -r aline; do
+    echo "${#aline[@]}"
+    a="true"
+    b="false"
+    printf '\n' >> test2_out.dat
+    echo "${aline}"
+    aline="${aline/$b/$a}"
+    echo "${aline}"
+    printf '%s' \ "${aline}" >> test2_out.dat
+    
+
+done < $1

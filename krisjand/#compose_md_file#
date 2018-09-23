@@ -1,0 +1,246 @@
+#!/bin/bash
+
+if [ $# -ne 5 ]; then
+    echo "Syntax: compute_md_file [input directory] [sample number #####] [n_side input] [npipe version (output)] [run version (output)]"
+    exit
+fi
+
+
+
+if [ -d $1 ]; then
+    input_dir=$1
+else
+    echo "Input directory does not exist"
+    exit
+fi
+
+# Checking that nside is a power of 2
+temp1=$(printf '%5d' $3)
+if [ $3 -lt 1 ]; then
+    echo $[ $temp1 < 1 ]
+    echo "n_side  must be a power of 2 equal to or larger than 1"
+    exit
+elif [ $3 == 1 ]; then
+    echo "n_side = 1"
+    nside=$3
+else
+    while [ $temp1 -gt 1 ]; do
+	if [ $(($temp1 % 2)) == 0 ]; then
+	    temp1=$(($temp1/2))
+	else
+	    echo "n_side  must be a power of 2 equal to or larger than 1"
+	    exit
+	fi
+    done
+    nside=$3
+fi
+
+# assigning the other inputs
+num=$(printf "%05d\n" $2)
+npipe=$4
+run=$5
+
+output_dir=/mn/stornext/u3/krisjand/stornext/npipe_highres/data_npipe/
+input_file_md=temp_amp_c0001_k${num}.dat
+output_file_md=md_npipe${npipe}_krisjand_${run}.dat
+
+echo "Making the mono-/dipole file"
+printf "%1s %11s %14s %14s %14s %14s %14s %14s %14s %14s %14s %14s\n" \ "#" "Band" "M_def" "X_def" "Y_def" "Z_def" "M_mean" "X_mean" "Y_mean" "Z_mean" "M_rms" "D_rms" > ${output_file_md}
+
+count=-1
+while IFS=' ' read -r -a line; do
+    line=$(echo $line | tr " " "\n")
+    count=$(($count +1))
+    #echo ${line[0]}
+    l0=${line[0]}
+    band[$count]=$l0
+    #echo $l0 #, ${freq[$count]}
+    #echo 1, $l0
+    l1=${line[1]}
+    #echo 2, $l1
+    l2=${line[2]}
+    #echo 3, $l2
+    l3=${line[3]}
+    #echo 4, $l3
+    l4=${line[4]}
+    #echo 5, $l4
+   printf "%14s %14s %14s %14s %14s %14s %14s %14s %14s %14s %14s\n" \ $l0 $l1 $l2 $l3 $l4 $l1 $l2 $l3 $l4 1.e-6 0.000E+00 >> ${output_file_md}   
+done < $input_dir$input_file_md
+
+echo "Making the gain and bandpass file"
+
+freq=("030" "044" "070" "100" "143" "217" "353" "545" "857")
+line2RJ=(" 11.06 " " 14.01 " " 12.24 ") # fill in this one with correct values
+input_file_gain=gain_no0001.dat
+input_file_bp=bp_no0001.dat
+input_file_LR=fg_ind_mean_no0001.dat
+output_file_gain_bp=instrument_params_rd12_npipe${npipe}_krisjand_${run}.dat
+
+# loop over gain and bp in turn
+# make aditional arrays for the header in each file. When header = band, then ...
+sample=$(echo $num | sed 's/^0*//') # replaces the first leading zeros in $num with blank spaces
+header_gain=$(sed -n 1p $input_dir$input_file_gain)
+line_gain=$(sed -n $(($sample + 1))p $input_dir$input_file_gain) 
+# $(($num + 1)) doesn't work if $num has leading zeros
+
+header_bp=$(sed -n 1p $input_dir$input_file_gain)
+line_bp=$(sed -n $(($sample + 1))p $input_dir$input_file_bp) 
+
+
+line_bp_arr=($line_bp)
+line_gain_arr=($line_gain)
+header_gain_arr_temp=($header_gain)
+header_bp_arr_temp=($header_bp)
+
+
+if [ ${line_bp_arr[0]} -ne ${sample} ];then
+    echo "Sample missmatch in gain or bandpass file, sample not equal to input"
+    exit
+else
+    if [ ${line_gain_arr[0]} -ne ${sample} ]; then
+	echo "Sample missmatch in gain or bandpass file, sample not equal to input"
+	exit
+    fi
+fi
+
+echo we continue
+if [ ${header_bp_arr_temp[0]} == '#' ]; then
+    ind=-1
+    for i in `seq 1 $((${#header_bp_arr_temp[@]}-1))`; do
+	header_bp_arr[$(($i-1))]=${header_bp_arr_temp[$i]}
+    done
+else
+    header_bp_arr=(${header_bp_arr_temp[@]})
+fi
+
+if [ ${header_gain_arr_temp[0]} == '#' ]; then
+    ind=-1
+    for i in `seq 1 $((${#header_gain_arr_temp[@]}-1))`; do
+	header_gain_arr[$(($i-1))]=${header_gain_arr_temp[$i]}
+    done
+else
+    header_gain_arr=(${header_gain_arr_temp[@]})
+fi
+
+
+printf "%1s %11s %12s %16s\n" \ "#" "Band" "Gain" "delta_bp" > ${output_file_gain_bp}
+
+for i in ${!band[@]}; do
+    printf "%14s %14s %14s\n" \ ${band[$i]} ${line_gain_arr[$(($i+1))]} ${line_bp_arr[$(($i+1))]} >> ${output_file_gain_bp}
+done
+
+
+echo "Making the CO-LR files"
+
+me=~/quiet_svn/oslo/src/f90/map_editor/map_editor
+nside_str=$(printf "%04d" $nside)
+mf=/mn/stornext/u3/krisjand/stornext/npipe_highres/data_npipe/mask_fullsky_n${nside_str}.fits
+
+# to find all bands at 100, 217 and 353 GHz we use the following syntax.
+# band_split=(${band[index]/-/ }) 
+# this will split all occurences of '-' with a space ' ' in the band element 
+# (e.g '100-1a' --> '100 1a', and is then read into band_split so that 
+# ${band_split[0]} = frequency and ${band_split[1]} = bolometer (spider, sbolo or shorn)
+
+# !!!!!!!!!!!!!!!!!!!!! #
+# Starting with 100 GHz #
+# !!!!!!!!!!!!!!!!!!!!! #
+co_file_name=co10_line_template_npipe${npipe}_krisjand_${run}.dat
+printf "%1s %10s %17s %14s %11s %9s\n" \ "#" "Band" "LR mean" "LR RMS" "line2RJ" "Poltype" > ${co_file_name}
+
+for i in ${!band[@]}; do
+    band_split=(${band[$i]/-/ })
+    if [ ${band_split[0]} = 100 ]; then
+	co_band_file=${input_dir}co-100_${band[$i]}_c0001_k${num}.fits
+	if [ -r $co_band_file ]; then
+	    $me print_stats ${co_band_file} $mf > co_band_stats.txt
+	    mean_line=$(sed -n '8p' co_band_stats.txt)
+	    mean_line_arr=($mean_line)
+	    if [ ${mean_line_arr[0]} = Mean ]; then
+		temp_mean=${mean_line_arr[2]}
+	    else
+		echo "Something is wrong with map_editor print_stats. Check code"
+		exit
+	    fi
+	else
+	    temp_mean=(1.00000000000000)
+	    # if file doesn't exist but the band is in the md-file, it means that the band 
+	    # is the reference band
+	fi
+	# Write to the co_line_template file
+	printf "%14s %20s %10s %10s %10s\n" \ ${band[$i]} $temp_mean 0.0000 ${line2RJ[0]} "   1   " >> ${co_file_name}
+
+    fi
+done
+
+
+# !!!!!!!!!!!!!!!!!!!!! #
+# Starting with 217 GHz #
+# !!!!!!!!!!!!!!!!!!!!! #
+co_file_name=co21_line_template_npipe${npipe}_krisjand_${run}.dat
+printf "%1s %10s %17s %14s %11s %9s\n" \ "#" "Band" "LR mean" "LR RMS" "line2RJ" "Poltype" > ${co_file_name}
+
+for i in ${!band[@]}; do
+    band_split=(${band[$i]/-/ })
+    if [ ${band_split[0]} = 217 ]; then
+	co_band_file=${input_dir}co-217_${band[$i]}_c0001_k${num}.fits
+	if [ -r $co_band_file ]; then
+	    $me print_stats ${co_band_file} $mf > co_band_stats.txt
+	    mean_line=$(sed -n '8p' co_band_stats.txt)
+	    mean_line_arr=($mean_line)
+	    if [ ${mean_line_arr[0]} = Mean ]; then
+		temp_mean=${mean_line_arr[2]}
+	    else
+		echo "Something is wrong with map_editor print_stats. Check code"
+		exit
+	    fi
+	else
+	    temp_mean=(1.00000000000000)
+	    # if file doesn't exist but the band is in the md-file, it means that the band 
+	    # is the reference band
+	fi
+	# Write to the co_line_template file
+	printf "%14s %20s %10s %10s %10s\n" \ ${band[$i]} $temp_mean 0.0000 ${line2RJ[1]} "   1   " >> ${co_file_name}
+
+    fi
+done
+
+
+# !!!!!!!!!!!!!!!!!!!!! #
+# Starting with 353 GHz #
+# !!!!!!!!!!!!!!!!!!!!! #
+co_file_name=co32_line_template_npipe${npipe}_krisjand_${run}.dat
+printf "%1s %10s %17s %14s %11s %9s\n" \ "#" "Band" "LR mean" "LR RMS" "line2RJ" "Poltype" > ${co_file_name}
+
+for i in ${!band[@]}; do
+    band_split=(${band[$i]/-/ })
+    if [ ${band_split[0]} = 353 ]; then
+	co_band_file=${input_dir}co-353_${band[$i]}_c0001_k${num}.fits
+	if [ -r $co_band_file ]; then
+	    $me print_stats ${co_band_file} $mf > co_band_stats.txt
+	    mean_line=$(sed -n '8p' co_band_stats.txt)
+	    mean_line_arr=($mean_line)
+	    if [ ${mean_line_arr[0]} = Mean ]; then
+		temp_mean=${mean_line_arr[2]}
+	    else
+		echo "Something is wrong with map_editor print_stats. Check code"
+		exit
+	    fi
+	else
+	    temp_mean=(1.00000000000000)
+	    # if file doesn't exist but the band is in the md-file, it means that the band 
+	    # is the reference band
+	fi
+	# Write to the co_line_template file
+	printf "%14s %20s %10s %10s %10s\n" \ ${band[$i]} $temp_mean 0.0000 ${line2RJ[2]} "   1   " >> ${co_file_name}
+
+    fi
+done
+
+
+#create extra arrays for the bands at 100, 217 and 353 GHz (wrt. CO line templates)
+# do this by comparing the first 3 characters of $band with freq.
+
+# For LR we need to take mean from map_editor of the different CO-maps: 
+# co-<freq>_<band>_c0001_k<sample>.fits
+# i.e. we need to take in the nside value of the maps.

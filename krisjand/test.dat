@@ -1,0 +1,4 @@
+# This is just a bullshit input file for testing
+  0100      = true # 0.0000
+  0100-1a   = false # 1.0000
+  100-1    = false # 2.0000

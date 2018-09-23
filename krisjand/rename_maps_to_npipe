@@ -1,0 +1,36 @@
+#!/bin/bash
+me=/mn/stornext/u3/krisjand/quiet_svn/oslo/src/f90/map_editor/map_editor
+if [ $# -ne 2 ] || [ "$1" = "help" ]; then
+    echo ""
+    echo "Syntax: rename...npipe [name string to convert] [npipe version]"
+    echo ""
+    echo 'e.g. rename...npipe "Calibrated_iter_02" npipe5v21'
+    echo ""
+    exit
+fi
+
+name_str=$1
+npipe_v=$2
+
+for file in *"$name_str"*.fits; do    
+    if [[ $file = *"LFI"* ]]; then
+	file_a=(${file/LFI/ })
+	band=${file_a[1]:0:2}
+	if [ $band -lt 24 ]; then
+	    freq=070
+	elif [ $band -lt 27 ]; then
+	    freq=044
+	else
+	    freq=030
+	fi
+	out_str=${file/LFI/${freq}_LFI}
+    else
+	out_str=$file
+    fi
+
+    out_str=${out_str/$name_str/$npipe_v}
+
+    mv $file $out_str
+    $me nest2ring $out_str $out_str
+    echo $out_str
+done

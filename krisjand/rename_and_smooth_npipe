@@ -1,0 +1,100 @@
+#!/bin/bash
+
+me=/mn/stornext/u3/krisjand/quiet_svn/oslo/src/f90/map_editor/map_editor
+npipe=$1
+
+for file in *; do
+    if [ "${file:0:17}" = "calibrated_iter02" ]; then
+	mv $file ${file/calibrated_iter02/npipe${npipe}}
+    fi
+done
+
+for file in *; do 
+    if [ "${file:0:17}" = "calibrated_iter04" ]; then
+	mv $file ${file/calibrated_iter04/npipe${npipe}}
+    fi
+done
+
+for file in *; do 
+    if [ "${file:0:25}" = "bandpass_corrected_iter04" ]; then
+	mv $file ${file/bandpass_corrected_iter04/npipe${npipe}}
+	file2=${file/bandpass_corrected_iter04/npipe${npipe}}
+	mv $file2 ${file2/map/map_bp_corr}
+    fi
+done
+
+
+len=${#npipe}
+full_len=$((6+$len))
+
+for file in *; do 
+    if [ "${file:$full_len:5}" = "LFI18" ]; then
+	mv $file ${file/npipe${npipe}/npipe${npipe}_070}
+    elif [ "${file:$full_len:5}" = "LFI19" ]; then
+	mv $file ${file/npipe${npipe}/npipe${npipe}_070}
+    elif [ "${file:$full_len:5}" = "LFI20" ]; then
+	mv $file ${file/npipe${npipe}/npipe${npipe}_070}
+    elif [ "${file:$full_len:5}" = "LFI21" ]; then
+	mv $file ${file/npipe${npipe}/npipe${npipe}_070}
+    elif [ "${file:$full_len:5}" = "LFI22" ]; then
+	mv $file ${file/npipe${npipe}/npipe${npipe}_070}
+    elif [ "${file:$full_len:5}" = "LFI23" ]; then
+	mv $file ${file/npipe${npipe}/npipe${npipe}_070}
+    elif [ "${file:$full_len:5}" = "LFI24" ]; then
+	mv $file ${file/npipe${npipe}/npipe${npipe}_044}
+    elif [ "${file:$full_len:5}" = "LFI25" ]; then
+	mv $file ${file/npipe${npipe}/npipe${npipe}_044}
+    elif [ "${file:$full_len:5}" = "LFI26" ]; then
+	mv $file ${file/npipe${npipe}/npipe${npipe}_044}
+    elif [ "${file:$full_len:5}" = "LFI27" ]; then
+	mv $file ${file/npipe${npipe}/npipe${npipe}_030}
+    elif [ "${file:$full_len:5}" = "LFI28" ]; then
+	mv $file ${file/npipe${npipe}/npipe${npipe}_030}
+    fi
+done
+
+i=1
+for file in *bmap*; do
+    if [ "$file" = "*bmap*" ]; then
+	continue
+    fi
+    a_file=(${file/bmap/ })
+    if [ "${a_file[1]:0:15}" = "_n0256_40arcmin" ]; then
+	continue
+    elif [ -e ${file/bmap/bmap_n0256_40arcmin} ]; then
+	continue
+    else
+	if [ ${file:$full_len:3} -lt 100 ]; then
+	    $me smooth g2g $file 0 3000 1024 0. 40 ${file/bmap/bmap_n0256_40arcmin}
+	else
+	    $me smooth g2g $file 0 6000 2048 0. 40 ${file/bmap/bmap_n0256_40arcmin}
+	fi 
+	$me ud_grade ${file/bmap/bmap_n0256_40arcmin} 256 ${file/bmap/bmap_n0256_40arcmin}
+	if [ ${file:$full_len:3} -lt 545 ]; then
+	    $me scale ${file/bmap/bmap_n0256_40arcmin} ${file/bmap/bmap_n0256_40arcmin} 1e6
+	fi
+    fi
+done
+
+i=1
+for file in *_map*; do
+    if [ "$file" = "*_map*" ]; then
+	continue
+    fi
+    a_file=(${file/_map/ })
+    if [ "${a_file[1]:0:15}" = "_n0256_40arcmin" ]; then
+	continue
+    elif [ -e ${file/_map/_map_n0256_40arcmin} ]; then
+	continue
+    else
+	if [ ${file:$full_len:3} -lt 100 ]; then
+	    $me smooth g2g $file 0 3000 1024 0. 40 ${file/_map/_map_n0256_40arcmin}
+	else
+	    $me smooth g2g $file 0 6000 2048 0. 40 ${file/_map/_map_n0256_40arcmin}
+	fi 
+	$me ud_grade ${file/_map/_map_n0256_40arcmin} 256 ${file/_map/_map_n0256_40arcmin}
+	if [ ${file:$full_len:3} -lt 545 ]; then
+	$me scale ${file/_map/_map_n0256_40arcmin} ${file/_map/_map_n0256_40arcmin} 1e6
+	fi 
+    fi
+done

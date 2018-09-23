@@ -1,0 +1,7 @@
+#!/bin/bash
+paf=$1
+if [ $# -lt 1 ]; then
+  echo "rtfg [path to fg_ind_mean file]"
+  exit
+fi
+tail -f $paf | awk '{print $(NF-2),"\t",$(NF-1)}'

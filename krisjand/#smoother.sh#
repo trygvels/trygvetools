@@ -1,0 +1,77 @@
+#!/bin/bash
+#Smoothing script: low res to high res maps with 20' smoothing
+#Input is k-number from Trygve. c01 might need to be changed.
+input_dir="/uio/hume/student-u68/trygvels/master/cdata/like/npipe4v203/chains_ml_npipe_v13/"
+output_dir="/mn/stornext/u3/krisjand/stornext/npipe_highres/smooth_npipe_highres_trygve/"
+maps=("residual_030_c01_k"$1".fits"
+"residual_044_c01_k"$1".fits"
+"residual_070_c01_k"$1".fits"
+"residual_100_c01_k"$1".fits"
+"residual_143_c01_k"$1".fits"
+"residual_217_c01_k"$1".fits"
+"residual_353_c01_k"$1".fits"
+"residual_545_c01_k"$1".fits"
+"residual_857_c01_k"$1".fits"
+"chisq_c0001_k"$1".fits"
+"cmb_c0001_k"$1".fits"
+"co_c0001_k"$1".fits"
+"dust_Td_c0001_k"$1".fits"
+"dust_beta_c0001_k"$1".fits"
+"dust_c0001_k"$1".fits"
+"synch_beta_c0001_k"$1".fits"
+"synch_c0001_k"$1".fits")
+
+##thought of implementing this way of naming the output maps with
+##the values of nside=1024 for the first three. Didn't work as planned.
+#outmaps=("residual_030_c01_k"$1"_n"$nside".fits"
+#"residual_044_c01_k"$1"_n"$nside".fits"
+#"residual_070_c01_k"$1"_n"$nside".fits"
+#"residual_100_c01_k"$1"_n"$nside".fits"
+#"residual_143_c01_k"$1"_n"$nside".fits"
+#"residual_217_c01_k"$1"_n"$nside".fits"
+#"residual_353_c01_k"$1"_n"$nside".fits"
+#"residual_545_c01_k"$1"_n"$nside".fits"
+#"residual_857_c01_k"$1"_n"$nside".fits"
+#"chisq_c0001_k"$1"_n"$nside".fits"
+#"cmb_c0001_k"$1"_n"$nside".fits"
+#"co_c0001_k"$1"_n"$nside".fits"
+#"dust_Td_c0001_k"$1"_n"$nside".fits"
+#"dust_beta_c0001_k"$1"_n"$nside".fits"
+#"dust_c0001_k"$1"_n"$nside".fits"
+#"synch_beta_c0001_k"$1"_n"$nside".fits"
+#"synch_c0001_k"$1"_n"$nside".fits")
+
+echo
+
+outmaps=("residual_030_c01_k"$1"_n1024.fits"
+"residual_044_c01_k"$1"_n1024.fits"
+"residual_070_c01_k"$1"_n1024.fits"
+"residual_100_c01_k"$1"_n2048.fits"
+"residual_143_c01_k"$1"_n2048.fits"
+"residual_217_c01_k"$1"_n2048.fits"
+"residual_353_c01_k"$1"_n2048.fits"
+"residual_545_c01_k"$1"_n2048.fits"
+"residual_857_c01_k"$1"_n2048.fits"
+"chisq_c0001_k"$1"_n2048.fits"
+"cmb_c0001_k"$1"_n2048.fits"
+"co_c0001_k"$1"_n2048.fits"
+"dust_Td_c0001_k"$1"_n2048.fits"
+"dust_beta_c0001_k"$1"_n2048.fits"
+"dust_c0001_k"$1"_n2048.fits"
+"synch_beta_c0001_k"$1"_n2048.fits"
+"synch_c0001_k"$1"_n2048.fits") 
+
+#echo $1
+for i in ${!maps[@]}; do
+    if [[ $i -lt 3 ]]; then
+	nside=1024
+    else 
+	nside=2048
+    fi
+    map_editor smooth g2g $input_dir${maps[$i]} 0 768 $nside 0. 20. $output_dir${outmaps[$i]}
+    ##just for checking if the input and output filenames, and nside are correct
+    #echo $nside
+    #echo $input_dir${maps[$i]}
+    #echo $output_dir${outmaps[$i]}
+
+done

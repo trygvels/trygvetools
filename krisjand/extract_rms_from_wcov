@@ -1,0 +1,36 @@
+#!/bin/bash
+mt=/mn/stornext/u3/krisjand/quiet_svn/oslo/src/f90/maptool/maptool
+me=~/quiet_svn/oslo/src/f90/map_editor/map_editor
+if [ $# -ne 1 ] || [ "$1" = "help" ]; then
+    echo ""
+    echo "Syntax: extract_rms_from_wcov [npipe version]"
+    echo ""
+    echo "e.g. ...wcov npipe6v0 "
+    echo ""
+    exit
+fi
+#freqs=("545" "857")
+#freqs=("30" "44" "70" "100" "217")
+freqs=("30" "44" "70" "100" "143" "217" "353" "545" "857")
+npipe=$1
+
+
+for ((i=0; i<${#freqs[@]}; i++)) ; do
+  freq=${freqs[$i]} #Frequency
+  for file in ${npipe}*${freq}*"wcov"*".fits"; do
+
+    if [[ $file = *\** ]]; then #Check if contains wildcard (Map does not exist)
+      echo "WARNING: " $file " does not exist!"
+      continue
+    fi
+
+    if [ $freq == 545 ] || [ $freq == 857 ] ; then
+	$mt extract 1 $file 1 ${file/wcov/rms_uK}
+	
+    else
+	$mt extract 3 $file 1 4 6 ${file/wcov/rms_uK}
+    fi
+    $me sqrt ${file/wcov/rms_uK} ${file/wcov/rms_uK}
+    $me scale ${file/wcov/rms_uK} ${file/wcov/rms_uK} 1e6
+  done
+done

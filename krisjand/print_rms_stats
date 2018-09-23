@@ -1,0 +1,48 @@
+#!/bin/bash
+
+mask_dir=/mn/stornext/u3/krisjand/stornext/npipe_highres/data_npipe
+me=/mn/stornext/u3/krisjand/quiet_svn/oslo/src/f90/map_editor/map_editor
+
+for file in *rms*fits; do
+    if [[ $file = *\** ]]; then #Check if contains wildcard (Map does not exist)
+	echo "WARNING: " $file " does not exist!"
+	continue
+    fi
+    echo "---------------------------------------------"
+    echo "Printing stats for $file"
+    echo ""
+    if [[ "$file" = *"030"* ]] || [[ "$file" = *"044"* ]] || [[ "$file" = *"070"* ]]; then
+	if [[ "$file" = *"n0064"* ]]; then
+	    $me print_stats $file $mask_dir/mask_fullsky_n0064_tqu.fits
+	elif [[ "$file" = *"n0128"* ]]; then
+	    $me print_stats $file $mask_dir/mask_fullsky_n0128_tqu.fits
+	elif [[ "$file" = *"n0256"* ]]; then
+	    $me print_stats $file $mask_dir/mask_fullsky_n0256_tqu.fits
+	elif [[ "$file" = *"n0512"* ]]; then
+	    $me print_stats $file $mask_dir/mask_fullsky_n0512_tqu.fits	    
+	elif  [[ "$file" = *"n1024"* ]]; then
+	    $me print_stats $file $mask_dir/mask_fullsky_n1024_tqu.fits
+	else
+	    echo "No nside specified, assuming fullres: n1024"
+	    $me print_stats $file $mask_dir/mask_fullsky_n1024_tqu.fits
+	fi
+    else
+	if [[ "$file" = *"n0064"* ]]; then
+	    $me print_stats $file $mask_dir/mask_fullsky_n0064_tqu.fits
+	elif [[ "$file" = *"n0128"* ]]; then
+	    $me print_stats $file $mask_dir/mask_fullsky_n0128_tqu.fits
+	elif [[ "$file" = *"n0256"* ]]; then
+	    $me print_stats $file $mask_dir/mask_fullsky_n0256_tqu.fits
+	elif [[ "$file" = *"n0512"* ]]; then
+	    $me print_stats $file $mask_dir/mask_fullsky_n0512_tqu.fits	    
+	elif [[ "$file" = *"n1024"* ]]; then
+	    $me print_stats $file $mask_dir/mask_fullsky_n1024_tqu.fits	    
+	elif [[ "$file" = *"n2048"* ]]; then
+	    $me print_stats $file $mask_dir/mask_fullsky_n2048_tqu.fits
+	else
+	    echo "No nside specified, assuming fullres: n2048"
+	    $me print_stats $file $mask_dir/mask_fullsky_n2048_tqu.fits
+	fi
+    fi
+    echo ""
+done

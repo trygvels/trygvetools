@@ -1,0 +1,107 @@
+#!/bin/bash
+
+#script to ZODI correct fullres maps 
+
+if [ $# -ne 1 ] || [ "$1" = "help" ]; then
+    echo ""
+    echo "Syntax: zodi_fullres_corr [npipe version]" 
+    echo "e.g. zodi..corr npipe5v21"
+    echo ""
+    exit
+fi
+
+npipe=$1
+me=/mn/stornext/u3/krisjand/quiet_svn/oslo/src/f90/map_editor/map_editor
+
+zodi_dir=/mn/stornext/u3/krisjand/stornext/npipe_highres/zodi_maps/
+
+#freqs=("857")
+freqs=("030" "044" "070" "100" "143" "217" "353" "545" "857")
+#freqs=("143" "217" "353" "545" "857")
+#freqs=("030" "044" "070" "100" "217" "545" "857")
+#freqs=("143" "353")
+
+# specific gains?
+# gainz=("0.15000" "0.28000" "0.56000" "1.00000" "1.00000" "1.00000" "1.00000" "1.00000" "1.00000")
+
+# copy much from mdc-bashscript
+
+#read -p "Output map name extension [ex. ZODICOR] " outputname
+outputname="ZODICOR"
+
+
+for ((i=0; i<${#freqs[@]}; i++)) ; do
+  freq=${freqs[$i]} #Frequency
+#  g=${gainz[$i]} # Gain for zodimap multiplication, only use if LFI gains differ from 0.15 0.28 and 0.56
+
+  #for inputmap in "npipe${npipe}"*${freq}*"MDCOR.fits"; do
+  for inputmap in "${npipe}_"*${freq}*"_QUADCOR_bp_corr"*"uK.fits" "${npipe}_"*${freq}*"_QUADCOR_pol_corr"*"uK.fits" "${npipe}_"*${freq}*"_QUADCOR_uK.fits"; do
+      if [[ $inputmap = *\** ]]; then #Check if contains wildcard (Map does not exist)
+	  echo "WARNING: " $inputmap " does not exist!"
+	  continue
+      fi
+
+      if [ $freq -lt 100 ]; then
+	  band_str=(${band_str/${npipe}_${freq}_/ })
+	  band=${band_str[0]}
+      
+      else
+	  band_str=(${band_str/${npipe}_/ })
+	  band=${band_str[0]}
+      fi
+
+      if [ $freq -lt 100 ] ; then
+	  echo "$freq this is LFI"
+	  #LFI
+	  nside=1024
+	  gain=1.0000  # maps are already in uK
+	  zodimap="${zodi_dir}zodi_map_dx11c_100_"${nside}"_40arcmin_full_at"${freq}"GHz.fits"
+      elif [ $freq -gt 353 ] ; then #545 and 857
+	  echo "$freq this is HFI (545 and 857)"
+	  #HFI
+	  nside=2048
+
+	  gain=1.0000
+	  zodimap="${zodi_dir}zodi_map_dx11c_"${freq}"_"${nside}"_14arcmin_full_uK.fits"
+      else
+	  echo "$freq this is HFI"
+	  #HFI
+	  nside=2048
+	  gain=1.0000  # maps are already in uK
+	  zodimap="${zodi_dir}zodi_map_dx11c_"${freq}"_"${nside}"_14arcmin_full.fits"
+      fi
+
+
+
+
+      echo "----------------------------------------------------------------------------------"
+      echo "Frequency: " ${freq}
+      echo "Input map: " ${inputmap}
+#      echo "Using gain for zodimap" $g  # only if using zodi 100 at 100 for LFI
+      if [ $freq -gt 353 ] ; then #545 and 857
+	  echo "Using Jy-to-uK-gain for zodimap" $gain # = 1.00 as HKE said that they are in MJy/sr already
+      fi
+      echo "----------------------------------------------------------------------------------"
+      
+      #-------------------- SUBTRACT ZODI MAP ----------------------
+      #-------------------- SCALE ZODI MAP ----------------------
+      echo "Subtracting with zodi maps"
+#      $map_editor scale $zodimap zodi_uK.fits $g #Adjusting with zodi gain, only use if LFI gains is not 0.15, 0.28 and 0.56
+      outmap=${inputmap/QUADCOR/QUADCOR_"${outputname}"}
+      $me scale $zodimap zodi_${band}_uK.fits $gain  # band makes it possible to run script in parallel.
+      $me subtract ${inputmap} zodi_${band}_uK.fits $outmap
+
+    if [ $freq == 857 ] ; then
+      map2png $outmap -bar -min 0 -max 500000
+    elif [ $freq == 545 ] ; then
+      map2png $outmap -bar -min 0 -max 30000
+    elif [ $freq == 353 ] ; then
+      map2png $outmap -bar -min 0 -max 3000
+    else
+      map2png $outmap -bar -min 0 -max 3000
+    fi
+
+
+      rm -f zodi_${band}_uK.fits
+  done
+done

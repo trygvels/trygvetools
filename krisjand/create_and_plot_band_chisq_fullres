@@ -1,0 +1,103 @@
+#!/bin/bash
+
+me=/mn/stornext/u3/krisjand/quiet_svn/oslo/src/f90/map_editor/map_editor
+
+echo ""
+echo "##########################################################"
+echo "#   Create and plot chisq for individual fullres bands   #"
+echo "##########################################################"
+echo ""
+
+if [ $# -ne 4 ] || [ "$1" = "help" ]; then
+    echo "Syntax: ...fullres [chain ####] [sample ######] [parameter file] [chisq max value plot]"
+    echo ""
+    echo "e.g. ...fullres 1 10 param_comm2_npipr5v21_shb_dipole_v1.1.txt 3"
+    echo ""
+    exit
+fi
+
+# read init_map from param_file to get bands
+chain=$(printf "%04d" $1)
+sample=$(printf "%06d" $2)
+param_file=$3
+chisq_max_val=$4
+
+echo "------------------------------------------------"
+echo "Reading active bands from parameter file"
+echo "Active bands:"
+
+band_nr=1
+band_nr_str=$(printf "%03d" $band_nr)
+active_band_count=0
+while [ "true" = "true" ]; do
+    incl_band_str=$(grep "INCLUDE_BAND${band_nr_str}" $param_file)
+    if [ "${incl_band_str[0]}" = "" ]; then # no matching 'INCLUDE_BAND###' found in parameter file --> no more bands
+	break
+    fi
+    incl_band_str=($incl_band_str)
+    if [[ ${incl_band_str[2]} = *"true"* ]]; then
+	active_band_count=$(($active_band_count+1))
+	active_band_nr[$active_band_count]=$band_nr_str
+	temp_str=$(grep -F "BAND_LABEL${band_nr_str}" $param_file)
+	temp_str=($temp_str)
+	#	while [ $temp_str 
+	active_band[$active_band_count]=${temp_str[2]}
+	echo "${active_band[$active_band_count]}"
+    fi
+
+    band_nr=$(($band_nr+1))
+    band_nr_str=$(printf "%03d" $band_nr)
+done
+echo ""
+echo "Number of active bands: $active_band_count"
+echo "------------------------------------------------"
+
+#we need to collect the residual files and RMS files for each of the active bands and divide residual by RMS into chisq
+
+echo ""
+echo "Calculating the individual chisq for each active band"
+echo "Plotting with a maximum value of $chisq_max_val"
+echo "--------------------------------------------------------------------"
+for ((i=1;i<=$active_band_count;i++)); do
+    res_file=res_${active_band[$i]}_c${chain}_k${sample}.fits
+    rms_str=$(grep "BAND_NOISE_RMS${active_band_nr[$i]} " $param_file)
+    rms_str=($rms_str)
+    rms_file=${rms_str[2]}
+    rms_file="../data_npipe/$rms_file"
+
+    mask_str=$(grep "BAND_MASKFILE${active_band_nr[$i]} " $param_file)
+    mask_str=($mask_str)
+    mask_file=${mask_str[2]}
+    mask_file="../data_npipe/$mask_file"
+
+    echo "Band:               ${active_band[$i]}"
+    if [ -r $res_file ]; then
+	echo "Residual file:      $res_file"
+    else
+	echo "WARNING: residual file $res_file does not exist"
+    fi
+    
+    if [ -r $rms_file ]; then
+	echo "RMS file:           $rms_file"
+    else
+	echo "WARNING: RMS file $rms_file does not exist"
+    fi
+
+    if [ -r $mask_file ]; then
+	echo "Mask file:          $mask_file"
+    else
+	echo "WARNING: mask file $mask_file does not exist"
+    fi
+    chisq_map=chisq_${active_band[$i]}_c${chain}_k${sample}.fits
+    if [ -r $chisq_map ]; then
+	echo "Chisq map $chisq_map already exists"
+    else
+	echo "Creating chisq map: $chisq_map" 
+	$me divide $res_file $rms_file $chisq_map
+	$me multiply $chisq_map $mask_file $chisq_map
+    fi
+    map2png $chisq_map ${chisq_map/.fits/_max${chisq_max_val}.png} -bar -min 0 -max $chisq_max_val
+    echo ""
+done
+echo "--------------------------------------------------------------------"
+echo ""

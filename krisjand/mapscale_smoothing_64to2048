@@ -1,0 +1,59 @@
+#!/bin/bash                                                                                   
+#Smoothing script: low res to high res maps with 20' smoothing                                
+#Input is k-number from Trygve. c01 might need to be changed.                      
+me=~/quiet_svn/oslo/src/f90/map_editor/map_editor
+
+knum=$1
+npipe=$2
+version=$3
+
+maps=(
+"dust_Td_c0001_k"$knum".fits"
+"dust_beta_c0001_k"$knum".fits"
+"synch_beta_c0001_k"$knum".fits"
+"synch_c0001_k"$knum".fits"
+"dust_c0001_k"$knum".fits"
+"cmb_c0001_k"$knum".fits"
+"co-100_c0001_k"$knum".fits"
+"co-217_c0001_k"$knum".fits"
+"co-353_c0001_k"$knum".fits")
+
+outmaps=(
+"init_dust_T_npipe"$npipe"_trygve_n2048_60arcmin_"$version".fits"
+"init_dust_beta_npipe"$npipe"_trygve_n2048_60arcmin_"$version".fits"
+"init_synch_beta_npipe"$npipe"_trygve_n2048_60arcmin_"$version".fits"
+"init_synch_npipe"$npipe"_trygve_n2048_60arcmin_"$version".fits"
+"init_dust_npipe"$npipe"_trygve_n2048_60arcmin_"$version".fits"
+"init_cmb_npipe"$npipe"_trygve_n2048_60arcmin_"$version".fits"
+"init_co-100_npipe"$npipe"_trygve_n2048_60arcmin_"$version".fits"
+"init_co-217_npipe"$npipe"_trygve_n2048_60arcmin_"$version".fits"
+"init_co-353_npipe"$npipe"_trygve_n2048_60arcmin_"$version".fits")
+
+
+minvals=(
+35.
+3.0
+-1.5)
+
+maxvals=(
+10.
+0.4
+-4.5)
+                
+
+
+for i in ${!maps[@]}; do
+    $me ud_grade ${maps[$i]} 2048 ${maps[$i]/.fits/_n2048_udgrade.fits}
+    $me smooth g2g ${maps[$i]/.fits/_n2048_udgrade.fits} 0 700 2048 0. 60. ${outmaps[$i]}
+    rm ${maps[$i]/.fits/_n2048_udgrade.fits}
+done
+
+map2png ${outmaps[0]} -bar -min 14. -max 35.
+map2png ${outmaps[1]} -bar -min  1.3 -max 2.
+map2png ${outmaps[2]} -bar -min -4. -max -1.5
+map2png ${outmaps[3]} -bar -min  0. -max 1000. 
+map2png ${outmaps[4]} -bar -min  0. -max 1000.
+map2png ${outmaps[5]} -bar -range 250
+map2png ${outmaps[6]} -bar -min  0. -max 10.
+map2png ${outmaps[7]} -bar -min  0. -max 10.
+map2png ${outmaps[8]} -bar -min  0. -max 10.

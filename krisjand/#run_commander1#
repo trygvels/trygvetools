@@ -1,0 +1,68 @@
+#!/bin/bash
+
+start_path=$(pwd)
+#echo $start_path
+echo ""
+echo "#######################################"
+echo "#             COMMANDER 1             #"
+echo "#######################################"
+echo ""
+echo "Checking the current directory"
+echo ""
+if [ $start_path = '/mn/stornext/u3/krisjand/stornext/npipe_lowres' ]; then
+    echo "Checking input options"
+    echo ""
+else
+    echo "The directory in which to execute must be: /mn/stornext/u3/krisjand/stornext/npipe_lowres"
+    echo ""
+    exit
+fi
+
+if [ $# -ne 3 ]; then
+    echo "run_commander1 [number of processors] [param_file] [output_dir]"
+    echo ""
+    exit
+fi
+
+nproc=$1
+param=$2
+out_dir=$3
+
+
+if [ -r $param ]; then 
+    echo "Parameter file exists"
+    echo ""
+else
+    echo "The input parameter file '$param' does not exist (can not be read)"
+    echo ""
+    exit
+fi
+
+echo "Looking for output directory"
+echo ""
+if [ -d $out_dir ]; then
+    echo "Output directory '$out_dir' exists"
+    echo ""
+else
+    echo "Output directory doesn't exist, exiting script."
+    echo ""
+    exit
+fi
+
+if [ "${3:$((${#3}-1)):1}" = "/" ]; then
+    out_dir="${3:0:$((${#3}-1))}"
+else
+    out_dir="${3}"
+fi
+
+
+# copy parameter file and CO line templates to results directory
+echo "Copying parameter file and initial parameter files to output directory"
+echo ""
+export OMP_NUM_THREADS=1 
+cp $param $out_dir
+
+# execute Commander 2
+echo "Executing Commander 1"
+echo ""
+mpirun -n $nproc ~/git/Commander/commander1/src/commander/commander $param 2>&1 | tee ${out_dir}/slurm.txt

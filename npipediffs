@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# udgrade and make diffs
+
+# MOVE npipebest-diff to refmap
+
+refdir="/uio/hume/student-u68/trygvels/master/cdata/like/refmap/"
+
+ls cmb*
+read -p "Which sample to use: " n
+num=$(printf "%05d\n" $n)
+read -p "Version tag [For output name]: " ver
+mkdir nside64
+for file in *$num.fits; do
+  map_editor ud_grade $file 64 nside64/${file/k$num/n064}
+done
+chimax="$(ls nside64/residual*64.fits | wc -l)" # Count number of residuals ie. bands
+chimax="$(($chimax * 2))"
+map2png nside64/cmb_c0001_n064.fits -bar -range 300
+map2png nside64/chisq_c0001_n064.fits -bar -min 0 -max $chimax
+
+# Diff with dx12
+map_editor subtract $refdir"refmap_cmb_dx12_cl_v2_n0064_k00800_MDCOR.fits" nside64/cmb_c0001_n064.fits nside64/diff-CMB_dx12-$ver.fits
+map2png nside64/diff-CMB_dx12-$ver.fits -bar -range 10
+
+# Diff with best npipe
+map_editor subtract $refdir"refmap_cmb_npipe21J.fits" nside64/cmb_c0001_n064.fits nside64/diff-CMB_npipe-$ver.fits
+map2png nside64/diff-CMB_npipe-$ver.fits -bar -range 10

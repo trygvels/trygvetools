@@ -1,0 +1,74 @@
+#!/bin/bash
+
+start_path=$(pwd)
+#echo $start_path
+echo ""
+echo "#######################################"
+echo "#             COMMANDER 2             #"
+echo "#######################################"
+echo ""
+echo "Checking the current directory"
+echo ""
+if [ $start_path = '/mn/stornext/u3/krisjand/stornext/npipe_highres' ]; then
+    echo "Checking input options"
+    echo ""
+else
+    echo "The directory in which to execute must be: /mn/stornext/u3/krisjand/stornext/npipe_highres"
+    echo ""
+    exit
+fi
+
+if [ $# -ne 5 ]; then
+    echo "run_commander2 [number of processors] [npipe version] [comm2 run] [param file] [output dir]"
+    echo ""
+    echo "e.g. run_commander2 72 npipe5v21 shb_v2.0 param_comm2_npipe5v21_shb_v2.0.txt chains_npipe5v21_shb_v2.0"
+    echo ""
+    exit
+fi
+
+nproc=$1
+npipe=$2
+run=$3
+param=$4
+
+if [ "${5:$((${#5}-1)):1}" = "/" ]; then #removes trailing '/' from directory path
+    out_dir="${5:0:$((${#5}-1))}"
+else
+    out_dir="${5}"
+fi
+
+
+if [ -r $param ]; then 
+    echo "Parameter file exists"
+    echo ""
+else
+    echo "The input parameter file '"$param"' does not exist (can not be read)"
+    echo ""
+    exit
+fi
+echo "Looking for output directory"
+echo ""
+if [ -d $out_dir ]; then
+    echo "Output directory '"$out_dir"' exists"
+    echo ""
+else
+    mkdir $out_dir
+    echo "New directory created: "$out_dir
+    echo ""
+fi
+
+
+# copy parameter file and CO line templates to results directory
+echo "Copying parameter file and initial parameter files to output directory"
+echo ""
+
+cp $param $out_dir/.
+cp data_npipe/co*_line_template*${npipe}*${run}*.dat $out_dir/.
+cp data_npipe/md_init_*${npipe}*${run}*.dat $out_dir/.
+cp data_npipe/instrument_params*${npipe}*${run}*.dat $out_dir/.
+
+
+# execute Commander 2
+echo "Executing Commander 2"
+echo ""
+export OMP_NUM_THREADS=1; mpirun -n $nproc ~/git/Commander/src/commander/commander $param 2>&1 | tee ${out_dir}/slurm.txt

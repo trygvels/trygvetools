@@ -1,0 +1,37 @@
+#!/bin/bash
+export OMP_NUM_THREADS=1
+param=$1 #parameter file
+n=$2
+if [ $# -ne 2 ]; then
+  echo "commander [parameter file] [numprocs]"
+  exit
+fi
+
+#Find chains directory in parameter file
+chains=$(awk -F'[=[:blank:]#]+' '$1 == "OUTPUT_DIRECTORY" {print $2}' $param)
+chains="${chains%\'}"
+chains="${chains#\'}"
+mkdir $chains
+
+#Find number of bands in parameter file
+#n=$(awk -F'[=[:blank:]#]+' '$1 == "NUMBAND" {print $2}' $param)
+
+#Copy param to chains
+cp $param $chains
+
+echo "--------------------------------------------"
+echo "PARAM:    " $param
+echo "DIR:      " $chains
+echo "NUMBANDS: " $n
+echo "--------------------------------------------"
+
+read -p "Go? [q to exit]" doit 
+if [[ $doit ]]; then
+    exit
+fi
+#Go commander
+mpirun -n $n /uio/hume/student-u68/trygvels/master/Commander/src/commander/commander $param 2>&1 | tee $chains/slurm.txt
+
+
+
+

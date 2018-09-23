@@ -1,0 +1,72 @@
+#!/bin/bash
+
+me=/mn/stornext/u3/krisjand/quiet_svn/oslo/src/f90/map_editor/map_editor
+p2i=/mn/stornext/u3/hke/local/bin/patch2img
+if [ $# -lt 6 ]; then
+    echo "plotmaps_galaxy_plane_series [inmap] [Img size] [Img center lat] [Grid size (deg)] [Pixel res (arcmin)] [range (0 for none)]"
+    exit
+fi
+inmap=$1
+img_size=$2
+img_lat=$3
+img_grid=$4
+img_res=$5
+img_range=$6
+
+
+if [ "$img_range" = "0" ]; then # if zero, natural range
+    range_bool="false"
+else
+    range_bool="true" # if more than 0, use range
+fi
+
+minmax="false"
+if [ $img_range -lt 0 ]; then #if less than one, then min to max
+    minmax="true"
+fi
+
+out_str_start="size${img_size}_range${img_range}"
+plot_str="-size $img_size -res $img_res"
+
+if [ $img_grid -gt 0 ]; then
+    plot_str="$plot_str -grid $img_grid"
+fi
+
+if [ "$range_bool" = "true" ]; then
+    plot_str="$plot_str -range $img_range"
+elif [ "$range_bool" = "false" ]; then
+    plot_str="$plot_str"
+fi
+
+if [ $minmax = "true" ]; then
+    read -p "Min: " minn
+    read -p "Max: " mixx
+    plot_str="$plot_str -bar -min $minn -max $maxx"
+fi
+
+plot_str="$plot_str -lat $img_lat"
+img_lon=0
+
+last_lon=$(bc <<< "scale=2; 360-${img_size}")
+
+final_img=false
+echo "Plotting plane, lat = $img_lat"
+while [ "$final_img" = "false" ]; do    
+    outmap="${out_str_start}_lon${img_lon}_lat${img_lat}_${1/.fits/}.png"
+    $p2i $inmap $plot_str -lon $img_lon
+    mv ${inmap/.fits/.png} $outmap
+
+    echo $outmap
+    lon_test=$(bc <<< "scale=2; ${last_lon}-${img_lon}")
+    lon_test=$(bc <<< "100*${lon_test}/1")
+    if [ $lon_test -le 0 ]; then
+	final_img="true"
+    else
+	img_lon=$(bc <<< "${img_lon}+$img_size")    
+    fi
+    
+done
+
+
+
+

@@ -1,0 +1,75 @@
+#!/bin/bash
+
+if [ $# -lt 3 ];then
+    echo ""
+    echo "Syntax: comp...from_run [sample number] [run version] [chains directory]"
+    echo ""
+    echo "i.e. comp..from_run 100 v5 ~/krisjand/stornext/npipe_lowres/chains_npipe5v21_v4/"
+    echo ""
+    echo "Exiting!"
+    echo ""
+    exit
+fi
+
+samp="$(printf '%04d' \ $1)"
+sample="$(printf '%05d' \ $1)"
+run="$2"
+data=/mn/stornext/u3/krisjand/stornext/npipe_lowres/data/
+me=/mn/stornext/u3/krisjand/quiet_svn/oslo/src/f90/map_editor/map_editor
+
+if [ "${3:$((${#3}-1)):1}" = "/" ]; then
+    ch_dir="$3"
+else
+    ch_dir="${3}/"
+fi
+
+echo ""
+echo "####################################################"
+echo "# Composing Commander1 init files from sample $samp #"
+echo "####################################################"
+echo ""
+
+gain_in="gain_no0001.dat"
+temp_in="temp_amp_c0001_k${sample}.dat"
+bp_in="bp_no0001.dat"
+
+temp_out="temp_amp_init_${run}.dat"
+gain_out="gain_init_${run}.dat"
+bp_out="bp_init_${run}.dat"
+
+# init temp_amp
+cp ${ch_dir}$temp_in ${data}${temp_out}
+
+# init dust, synch, cmb
+cp ${ch_dir}cmb_c0001_k${sample}.fits ${data}cmb_init_${run}.fits
+cp ${ch_dir}dust_c0001_k${sample}.fits ${data}dust_init_${run}.fits
+cp ${ch_dir}dust_Td_c0001_k${sample}.fits ${data}dust_Td_init_${run}.fits
+cp ${ch_dir}dust_beta_c0001_k${sample}.fits ${data}dust_beta_init_${run}.fits
+cp ${ch_dir}synch_c0001_k${sample}.fits ${data}synch_init_${run}.fits
+cp ${ch_dir}synch_beta_c0001_k${sample}.fits ${data}synch_beta_init_${run}.fits
+
+cofreqs=( "100" "217" "353" )
+# init CO
+for freq in ${cofreqs[@]}; do
+    cp ${ch_dir}co-${freq}_c0001_k${sample}.fits ${data}co-${freq}_init_${run}.fits
+    for file in "${ch_dir}co-${freq}_${freq}"*"_c0001_k${sample}.fits"; do
+	new_file="${file:${#ch_dir}:$((${#file} - ${#ch_dir}))}"
+	new_file="${new_file/co-${freq}_/co-}"
+	new_file="${new_file/c0001_k${sample}/init_${run}}"
+	echo $new_file
+	cp $file ${data}$new_file
+    done
+done
+
+
+
+# init gain
+grep -F "#" ${ch_dir}$gain_in > ${data}${gain_out} 
+grep -F " $1 " ${ch_dir}$gain_in >> ${data}${gain_out} 
+
+
+# init bp
+grep -F "#" ${ch_dir}$bp_in > ${data}${bp_out} 
+grep -F " $1 " ${ch_dir}$bp_in >> ${data}${bp_out} 
+
+

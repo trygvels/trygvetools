@@ -1,0 +1,98 @@
+#!/bin/bash
+map_editor=/mn/stornext/u3/hke/owl/quiet_svn/oslo/src/f90/map_editor/map_editor
+#map_editor=/uio/hume/student-u68/trygvels/master/ingunnkw-cmbco/src/f90/map_editor/map_editor
+
+if [ $# -lt 5 ]; then
+  echo "merge [map] [fill-map] [mask] [nside] [mask smoothing]"
+  exit
+else
+  echo " ########## Merging $1 with patches of $2 ##########"
+fi
+
+mask=$3
+nside=$4
+fwhm=$5
+
+lmax=$((3 * $nside))
+echo " ---------- smoothing mask with $5 arcmin ----------"
+$map_editor smooth g2g $3 0 $lmax $nside 0 $fwhm ${mask/.fits/_smooth.fits}
+mask_smooth=${mask/.fits/_smooth.fits}
+
+mask_fullsky=/uio/hume/student-u68/trygvels/master/cdata/like/npipe5v21/data/mask_fullsky_n"$nside"_tqu.fits
+##################################
+#out = npipe*(mask)+ alpha*dx11*(1-mask)
+# c  =      a        +   alpha*b
+##################################
+
+# ---------- (1-mask) ----------
+echo " ---------- calculating inverse mask ----------"
+$map_editor add_offset $mask_smooth one-mask_smooth.fits -1
+$map_editor scale one-mask_smooth.fits one-mask_smooth.fits -1
+
+# ---------- npipe*(mask) ----------
+echo " ---------- multiplying mask and input [npipe*(mask)] ----------"
+$map_editor multiply $1 $mask_smooth a.fits
+
+# ---------- alpha  ----------
+echo " ---------- calculating alpha on nside 64, 60 arcmin ----------"
+ns=64
+lx=$((3 * $ns))
+$map_editor ud_grade $1 $ns ${1/.fits/_temp.fits}
+$map_editor ud_grade $2 $ns ${2/.fits/_temp.fits}
+$map_editor smooth g2g ${1/.fits/_temp.fits} 0 $lx $ns 0 60 ${1/.fits/_temp.fits}
+$map_editor smooth g2g ${2/.fits/_temp.fits} 0 $lx $ns 0 60 ${2/.fits/_temp.fits}
+
+# degrade mask
+echo " ---------- degrading mask ----------"
+$map_editor ud_grade $mask_smooth $ns mask_temp.fits
+$map_editor rms2mask mask_temp.fits mask_temp.fits 0.99
+$map_editor add_offset mask_temp.fits mask_temp.fits -1
+$map_editor scale mask_temp.fits mask_temp.fits -1
+
+$map_editor fit_gain_offset_dipole ${1/.fits/_temp.fits} ${2/.fits/_temp.fits} mask_temp.fits mask_temp.fits residual.fits 2>/dev/null > fit_gain_temp.txt
+
+# EXTRACT OFFSET OUTPUT
+gain=$(tr -s '[:space:]' < fit_gain_temp.txt | grep -oP '(?<=gain\ =\ ).*,' | tail -n 1  | tr ',' '\n')  # Remove double spaces
+gain=$(bc -l <<< "1/$gain") # 1/gain calculator
+alpha=$gain
+
+# ---------- dx11*alpha  ----------
+echo " ---------- scaling $2 with $alpha ----------"
+$map_editor max_scalar $2 ${2/.fits/_thresh.fits} 0
+#$map_editor scale $2 ${2/.fits/_thresh.fits} 1
+
+$map_editor scale ${2/.fits/_thresh.fits} alphadx11.fits $alpha
+
+# ---------- b = dx11*alpha (1-mask) ----------
+echo " ---------- calculating b = alpha*dx11*mask ---------- "
+$map_editor multiply alphadx11.fits one-mask_smooth.fits b.fits
+
+# ------- c = a + alpha*b ----------
+echo " ---------- adding two masked parts [c=a+b] ----------"
+$map_editor add a.fits b.fits ${1/.fits/_merged.fits}
+
+echo " ---------- plotting ----------"
+#map2png $1 -bar -range 10
+#map2png ${1/.fits/_merged.fits} -bar -range 10 
+read -p "Min " minn
+read -p "Max: " maxx
+patch2img $1 -lon 185 -lat -6 -min $minn -max $maxx -size 30 -res 2
+patch2img ${2/.fits/_thresh.fits} -lon 185 -lat -6 -min $minn -max $maxx -size 30 -res 2
+patch2img $mask_smooth -lon 185 -lat -6 -min 0 -max 1 -size 30 -res 2
+patch2img alphadx11.fits -lon 185 -lat -6 -min $minn -max $maxx -size 30 -res 2
+patch2img ${1/.fits/_merged.fits} -lon 185 -lat -6 -min $minn -max $maxx -size 30 -res 2
+
+###################################################################################################################
+#remove temporary files
+echo " ---------- removing temp files ----------"
+rm ${1/.fits/_temp.fits} 2>/dev/null
+rm ${2/.fits/_temp.fits} 2>/dev/null
+rm ${2/.fits/_thresh.fits} 2>/dev/null
+rm a.fits 2>/dev/null
+rm b.fits 2>/dev/null
+rm alphadx11.fits 2>/dev/null
+rm ${mask/.fits/_smooth.fits} 2>/dev/null
+rm one-mask_smooth.fits 2>/dev/null
+rm mask_temp.fits 2>/dev/null
+rm fit_gain_temp.txt 2>/dev/null
+rm residual.fits 2>/dev/null

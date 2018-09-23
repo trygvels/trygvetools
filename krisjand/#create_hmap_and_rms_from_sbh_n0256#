@@ -1,0 +1,250 @@
+#!/bin/bash
+
+me=/mn/stornext/u3/krisjand/quiet_svn/oslo/src/f90/map_editor/map_editor
+freqs=("030" "044" "070" "100" "217")
+#freqs=("030" "044" "070" "100" "143" "217" "353" "545" "857")
+
+echo "Creating n0256 RMS maps from hmaps"
+
+
+if [ $# -ne 2 ]; then
+    echo ""
+    echo "Syntax: rms_sbh_from_hmap_n0256 [npipe version] [sigma file] "
+    echo ""
+    echo "e.g. rms_sbh_from_hmap_n0256 npipe5v21 noise_levels.txt"
+    echo ""
+    exit
+fi
+
+for file in *LFI*hmap.fits; do #first dealing with nside 1024 hmaps
+      if [[ $file = *\** ]]; then #Check if contains wildcard (Map does not exist)
+	  echo "WARNING: " $file " does not exist!"
+	  continue
+      fi
+      if [ -e ${file/hmap/hmap_n0256} ]; then
+	  echo "${file/hmap/hmap_n0256} already exists"
+	  continue
+      fi
+      echo "Creating n0256 hmap from: $file"
+      $me ud_grade $file 256 ${file/hmap/hmap_n0256}
+      $me scale ${file/hmap/hmap_n0256} ${file/hmap/hmap_n0256} 16 #(4x4 n1024 pix in one n0256 pix)
+done
+
+for file in *hmap.fits; do #then dealing with nside 2048 hmaps
+      if [[ $file = *\** ]]; then #Check if contains wildcard (Map does not exist)
+	  echo "WARNING: " $file " does not exist!"
+	  continue
+      fi
+      
+      if [[ $file = *"LFI"* ]]; then #if filename has LFI in it, continue
+	  continue
+      fi
+      if [ -e ${file/hmap/hmap_n0256} ]; then
+	  echo "${file/hmap/hmap_n0256} already exists"
+	  continue
+      fi      
+      echo "Creating n0256 hmap from: $file"
+      $me ud_grade $file 256 ${file/hmap/hmap_n0256}
+      $me scale ${file/hmap/hmap_n0256} ${file/hmap/hmap_n0256} 64 #(8x8 n1024 pix in one n0256 pix)
+done
+
+
+npipe=$1
+sig_file=$2
+l_np=${#npipe}
+l_LFI=$((15 + $l_np))
+l_HFI=$((11 + $l_np))
+
+count=0
+while IFS="" read -r line; do
+    aline=($line)
+    label_ar[$count]=${aline[0]}
+    sig_ar[$count]=${aline[1]:0:10}
+    echo $count
+    echo ${label_ar[$count]}
+    echo ${sig_ar[$count]}
+    echo ""
+    count=$(($count + 1))
+
+done < $sig_file
+	  
+echo ""
+
+for ((i=0; i<${#freqs[@]}; i++)) ; do
+  freq=${freqs[$i]} #Frequency
+#  g=${gainz[$i]} # Gain for zodimap multiplication, only use if LFI gains differ from 0.15 0.28 and 0.56
+
+#  for inputmap in ""${npipe}*${freq}*"_bmap.fits"; do
+  for inputmap in "../"${npipe}*${freq}*"_bmap_K.fits"; do
+      if [[ $inputmap = *\** ]]; then #Check if contains wildcard (Map does not exist)
+	  echo "WARNING: " $inputmap " does not exist!"
+	  continue
+      fi
+      echo "Calculating RMS for $inputmap"
+#      inmap=${inputmap/bmap/hmap}
+      inmap=${inputmap/bmap_K/hmap_n0256}
+      inmap=${inmap/'../'/}
+      echo "Input hmap: $inmap"
+
+      if [ $freq -lt 100 ] ; then
+	  echo "$freq this is LFI"
+	  nside=1024
+
+#      elif [ $freq -gt 353 ] ; then #545 and 857
+#	  echo "$freq this is HFI (545 and 857)"
+#	  #HFI
+#	  nside=2048
+#	  gain=1.0000 
+#	  while IFS="" read -r line; do
+#	      aline=($line)
+#	      if [ "${aline[0]}" = "${inmap/hmap/bmap_MDCOR}" ]; then
+#		  gain=${aline[2]}
+#		  break
+#	      fi
+#	  done < $gain_file
+#	  if [ $gain -eq 0.0 ]; then
+#	      echo "Gain for file '${inmap/hmap/bmap_MDCOR}' in '$gain_file' doesn't exist"
+#	      continue
+#	  fi
+      else
+	  echo "$freq this is HFI"
+	  #HFI
+	  nside=2048
+      fi
+
+      
+
+      if [ $freq -lt 100 ] ; then
+	  in_a=(${inmap/_/ })
+	  in_a=(${in_a[@]/_/ })
+	  in_a=(${in_a[@]/_/ })
+	  channel=${in_a[2]}
+	  echo "the channel is $channel"
+	  if [ -e $inmap ];then # sbolo, shorn don't have hmap
+	      sb="true"
+	      echo "single bolo"
+	  else #shorn
+	      sb="false"
+	      echo "single horn"
+	  fi
+	  if [ "$sb" = "true" ]; then
+	      sig_1=0
+	      for ((j=0; j<${#sig_ar[@]}; j++)) ; do
+		  if [ "${label_ar[$j]}" = "$channel" ]; then
+		      sig_1=${sig_ar[$j]}
+		      break
+		  fi
+	      done 
+	      echo "sig_1 = $sig_1"
+#	      $me sbolo_rms ${inmap} ${sig_1} ${inmap/_hmap.fits/} K
+	      $me sbolo_rms ${inmap} ${sig_1} ${inmap/_hmap_n0256.fits/_n0256} K
+	  
+	  else
+	      sig_1=0
+	      for ((j=0; j<${#sig_ar[@]}; j++)) ; do
+	      	  if [ "${label_ar[$j]}" = "${channel}M" ]; then
+		      sig_1=${sig_ar[$j]}
+		      break
+		  fi
+	      done 
+	      echo "sig_1 = $sig_1"
+	      sig_2=0
+	      for ((j=0; j<${#sig_ar[@]}; j++)) ; do
+	      	  if [ "${label_ar[$j]}" = "${channel}S" ]; then
+		      sig_2=${sig_ar[$j]}
+		      break
+		  fi
+	      done 
+	      echo "sig_2 = $sig_2"
+	      $me shorn_rms ${inmap/$channel/${channel}M} ${sig_1} ${inmap/$channel/${channel}S} ${sig_2} ${inmap/_hmap_n0256.fits/_n0256} K
+#	      $me shorn_rms ${inmap/$channel/${channel}M} ${sig_1} ${inmap/$channel/${channel}S} ${sig_2} ${inmap/_hmap.fits/} K
+	  fi
+
+#      elif [ $freq -gt 353 ] ; then #545 and 857
+#	  in_a=(${inmap/_/ })
+#	  in_a=(${in_a[@]/_/ })
+#	  channel=${in_a[1]}
+#	  echo "the channel is $channel"
+#	  if [ -e $inmap ];then # sbolo, shorn don't have hmap
+#	      sb="true"
+#	      echo "single bolo"
+#	  else #shorn
+#	      sb="false"
+#	      echo "single horn"
+#	  fi
+#
+#	  if [ "$sb" = "true" ]; then
+#	      sig_1=0
+#	      for ((j=0; j<${#sig_ar[@]}; j++)) ; do
+#	      	  if [ "${label_ar[$j]}" = "$channel" ]; then
+#		      sig_1=${sig_ar[$j]}
+#		      break
+#		  fi
+#	      done 
+#	      echo "sig_1 = $sig_1"
+#	      $me sbolo_rms ${inmap} ${sig_1} ${inmap/_hmap.fits/} Jy $gain
+#	  fi
+
+      else
+	  in_a=(${inmap/_/ })
+	  in_a=(${in_a[@]/_/ })
+	  channel=${in_a[1]}
+	  echo "the channel is $channel"
+	  if [ -e $inmap ];then # sbolo, shorn don't have hmap
+	      sb="true"
+	      echo "single bolo"
+	  else #shorn
+	      sb="false"
+	      echo "single horn"
+	  fi
+
+	  if [ "$sb" = "true" ]; then
+	      sig_1=0
+	      for ((j=0; j<${#sig_ar[@]}; j++)) ; do
+	      	  if [ "${label_ar[$j]}" = "$channel" ]; then
+		      sig_1=${sig_ar[$j]}
+		      break
+		  fi
+	      done 
+	      echo "sig_1 = $sig_1"
+	      $me sbolo_rms ${inmap} ${sig_1} ${inmap/_hmap_n0256.fits/_n0256} K
+#	      $me sbolo_rms ${inmap} ${sig_1} ${inmap/_hmap.fits/} K
+	  
+	  else
+	      sig_1=0
+	      for ((j=0; j<${#sig_ar[@]}; j++)) ; do
+	      	  if [ "${label_ar[$j]}" = "${channel}a" ]; then
+		      sig_1=${sig_ar[$j]}
+		      break
+		  fi
+	      done 
+	      echo "sig_1 = $sig_1"
+	      
+	      sig_2=0
+	      for ((j=0; j<${#sig_ar[@]}; j++)) ; do
+	      	  if [ "${label_ar[$j]}" = "${channel}b" ]; then
+		      sig_2=${sig_ar[$j]}
+		      break
+		  fi
+	      done 
+	      echo "sig_2 = $sig_2"
+	      $me shorn_rms ${inmap/$channel/${channel}a} ${sig_1} ${inmap/$channel/${channel}b} ${sig_2} ${inmap/_hmap_n0256.fits/_n0256} K
+#	      $me shorn_rms ${inmap/$channel/${channel}a} ${sig_1} ${inmap/$channel/${channel}b} ${sig_2} ${inmap/_hmap.fits/} K
+	  fi
+      fi
+
+      echo ""
+      echo "-----------------------------------------------------"
+
+#    if [ $freq == 545 ] || [ $freq == 857 ] ; then
+#      map2png ${inmap/MDCOR/MDCOR_"${outputname}"} -bar -min 0 -max 10
+#    elif [ $freq == 353 ] ; then
+#      map2png ${inmap/MDCOR/MDCOR_"${outputname}"} -bar -min 0 -max 3000
+#    else
+#      map2png ${inmap/MDCOR/MDCOR_"${outputname}"} -bar -min 0 -max 300
+#    fi
+
+
+  done
+done
+

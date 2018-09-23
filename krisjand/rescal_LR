@@ -1,0 +1,94 @@
+#!/bin/bash
+
+if [ $# -ne 7 ];then
+    echo ""
+    echo "Syntax: ...LR [old ref label] [new ref label] [extra label] [sample] [nside] [chains dir] [out dir]"
+    echo ""
+    echo "e.g.  ...LR 353-3 353-5 <test> 30 64 path_to_npipe_lowres/chains_dir path_to_npipe_lowres/data"
+    echo ""
+    echo "e.g. output: co-353-2_LR_353-3_to_353-5_<test>.fits"
+    echo ""
+    exit
+fi
+
+old=$1
+new=$2
+end_label=$3
+sample=$(printf "%05d" $4)
+nside=$(printf "%04d" $5)
+me=/mn/stornext/u3/krisjand/quiet_svn/oslo/src/f90/map_editor/map_editor
+
+if [ "${6:$((${#6}-1)):1}" = "/" ]; then
+    in_dir="${6:0:$((${#6}-2))}"
+else
+    in_dir="${6}"
+fi
+
+if [ "${7:$((${#7}-1)):1}" = "/" ]; then
+    out_dir="${7:0:$((${#7}-2))}"
+else
+    out_dir="${7}"
+fi
+
+mask_dir=/mn/stornext/u3/krisjand/stornext/npipe_lowres/data
+mask="mask_fullsky_n${nside}.fits"
+freq=${old:0:3}
+
+echo ""
+echo "Frequency: $freq"
+echo ""
+
+$me print_stats $in_dir/"co-${freq}_${new}_c0001_k${sample}.fits" $mask_dir/$mask > $in_dir/co_band_stats.txt
+mean_line=$(sed -n '8p' $in_dir/co_band_stats.txt)
+mean_line_arr=($mean_line)
+if [ "${mean_line_arr[0]}" = "Mean" ]; then
+    temp_mean=${mean_line_arr[2]}
+else
+    echo "Something is wrong with map_editor print_stats. Check code"
+    exit
+fi
+
+echo ""
+echo "LR of new ref has been read."
+echo ""
+
+rm $in_dir/co_band_stats.txt  
+$me scale $mask_dir/$mask $in_dir/"new_LR_ref.fits" $temp_mean
+
+# loop over all bands and divide band_LR on new_ref_band_LR
+for inputfile in $in_dir/"co-${freq}_${freq}"*"k${sample}.fits"; do
+    infile="${inputfile/$in_dir/}"
+    echo ""
+    echo "Infile: $infile"
+    infile="${infile:1:$((${#infile}-1))}"
+    label="${infile/co-${freq}_/}"
+    temp=(${label/_/ })
+    label="${temp[0]}"
+    echo "Label: $label"
+
+    $me print_stats $inputfile $mask_dir/$mask > $in_dir/co_band_stats.txt
+    mean_line=$(sed -n '8p' $in_dir/co_band_stats.txt)
+    mean_line_arr=($mean_line)
+    if [ "${mean_line_arr[0]}" = "Mean" ]; then
+	temp_mean=${mean_line_arr[2]}
+    else
+	echo "Something is wrong with map_editor print_stats. Check code"
+	exit
+    fi
+
+    # if band = new_ref, we make the old ref LR as 1/new_ref_LR 
+    if [ "$label" = "$new" ]; then
+	outfile="co-${old}_LR_${old}_to_${new}_${end_label}.fits"
+	$me divide $mask_dir/$mask $in_dir/"new_LR_ref.fits" $out_dir/$outfile
+    else
+	# new_band_LR = 1/new_ref_LR * old_band_LR
+	outfile="co-${label}_LR_${old}_to_${new}_${end_label}.fits"
+	$me divide $mask_dir/$mask $in_dir/"new_LR_ref.fits" $out_dir/$outfile
+	$me scale $out_dir/$outfile $out_dir/$outfile $temp_mean
+    fi
+    echo "Outfile: $outfile"
+    rm $in_dir/co_band_stats.txt
+
+done
+
+rm $in_dir/"new_LR_ref.fits" 

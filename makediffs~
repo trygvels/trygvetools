@@ -1,0 +1,35 @@
+#!/bin/bash
+
+#makediffs
+echo "DX12 diff-maker: Makes diffs of CMB, Synch, Synch_beta, CO, Dust, Dust_beta, Dust_temp"
+
+dir="/uio/hume/student-u68/trygvels/master/cdata/like/refmap/dx12/"
+
+#NEED TO ADD COMPATABILITY FOR MULITPLE CO
+#
+read -p "Version/name for output : " ver
+read -p "Which sample to use: " n
+num=$(printf "%05d\n" $n)
+
+mkdir diffs
+
+map_editor subtract $dir"cmb_c0001_k00800.fits" cmb_c0001_k$num.fits diffs/diff-CMB_dx12-$ver.fits
+map2png diffs/diff-CMB_dx12-$ver.fits -bar -range 10
+
+map_editor subtract $dir"synch_c0001_k00800.fits" synch_c0001_k$num.fits diffs/diff-synch_dx12-$ver.fits
+map2png diffs/diff-synch_dx12-$ver.fits -bar -range 10
+
+map_editor subtract $dir"synch_beta_c0001_k00800.fits" synch_beta_c0001_k$num.fits diffs/diff-synchbeta_dx12-$ver.fits
+map2png diffs/diff-synchbeta_dx12-$ver.fits  -bar -range 10
+
+map_editor subtract $dir"co_c0001_k00800.fits" co_c0001_k$num.fits diffs/diff-CO_dx12-$ver.fits
+map2png diffs/diff-CO_dx12-$ver.fits -bar -range 10
+
+map_editor subtract $dir"dust_c0001_k00800.fits" dust_c0001_k$num.fits diffs/diff-dust_dx12-$ver.fits
+map2png diffs/diff-dust_dx12-$ver.fits -bar -range 10
+
+map_editor subtract $dir"dust_beta_c0001_k00800.fits" dust_beta_c0001_k$num.fits diffs/diff-dustbeta_dx12-$ver.fits
+map2png diffs/diff-dustbeta_dx12-$ver.fits -bar -range 10
+
+map_editor subtract $dir"dust_Td_c0001_k00800.fits" dust_Td_c0001_k$num.fits diffs/diff-dustT_dx12-$ver.fits
+map2png diffs/diff-dustT_dx12-$ver.fits -bar -range 10

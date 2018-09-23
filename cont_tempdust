@@ -45,20 +45,11 @@ sed -i "s,^\(GAIN_INIT[ ]*= \).*,\1'data/gain_init_"$tag".dat',g" $inparam #Gain
 cp "$base"/bp_no0001.dat data/bp_init_"$tag".dat
 sed -i "s,^\(BANDPASS_INIT[ ]*= \).*,\1'data/bp_init_"$tag".dat',g" $inparam #Bandpass init
 
-cp "$base"/dust_beta_c0001_k"$cont".fits data/dust_beta_init_"$tag".fits
-sed -i "s,^\(INIT_INDEX_MAP01_01[ ]*= \).*,\1'data/dust_beta_init_"$tag".fits',g" $inparam #Dust beta
-
-cp "$base"/dust_Td_c0001_k"$cont".fits data/dust_Td_init_"$tag".fits
-sed -i "s,^\(INIT_INDEX_MAP01_02[ ]*= \).*,\1'data/dust_Td_init_"$tag".fits',g" $inparam #Dust Td
-
-cp "$base"/dust_c0001_k"$cont".fits data/dust_init_"$tag".fits
-sed -i "s,^\(INITIAL_AMPLITUDE_MAP01[ ]*= \).*,\1'data/dust_init_"$tag".fits',g" $inparam #Dust
-
 cp "$base"/synch_beta_c0001_k"$cont".fits data/synch_beta_init_"$tag".fits
-sed -i "s,^\(INIT_INDEX_MAP02_01[ ]*= \).*,\1'data/synch_beta_init_"$tag".fits',g" $inparam #synch beta
+sed -i "s,^\(INIT_INDEX_MAP01_01[ ]*= \).*,\1'data/synch_beta_init_"$tag".fits',g" $inparam #synch beta
 
 cp "$base"/synch_c0001_k"$cont".fits data/synch_init_"$tag".fits
-sed -i "s,^\(INITIAL_AMPLITUDE_MAP02[ ]*= \).*,\1'data/synch_init_"$tag".fits',g" $inparam #synch
+sed -i "s,^\(INITIAL_AMPLITUDE_MAP01[ ]*= \).*,\1'data/synch_init_"$tag".fits',g" $inparam #synch
 
 # CO 100 ##################
 sed -i "s,^\(INITIALIZATION_MODE03[ ]*= \).*,\1\'input_map\',g" $inparam #CO
@@ -142,35 +133,14 @@ sed -i "s,^\(INITIAL_AMPLITUDE_MAP06[ ]*= \).*,\1'data/cmb_init_"$tag".fits',g" 
 
 
 cp "$base"/ff_c0001_k"$cont".fits data/ff_init_"$tag".fits
-sed -i "s,^\(INITIAL_AMPLITUDE_MAP07[ ]*= \).*,\1'data/ff_init_"$tag".fits',g" $inparam #ame
+sed -i "s,^\(INITIAL_AMPLITUDE_MAP02[ ]*= \).*,\1'data/ff_init_"$tag".fits',g" $inparam #ame
 
 #cp "$base"/ff_EM_c0001_k"$cont".fits data/ff_EM_init_"$tag".fits
 #sed -i "s,^\(INIT_INDEX_MAP07_01[ ]*= \).*,\1'data/ff_EM_init_"$tag".fits',g" $inparam #ff
 
 cp "$base"/ff_T_e_c0001_k"$cont".fits data/ff_T_e_init_"$tag".fits
-sed -i "s,^\(INIT_INDEX_MAP07_01[ ]*= \).*,\1'data/ff_T_e_init_"$tag".fits',g" $inparam #ff
+sed -i "s,^\(INIT_INDEX_MAP02_01[ ]*= \).*,\1'data/ff_T_e_init_"$tag".fits',g" $inparam #ff
 
 
-cp "$base"/ame1_c0001_k"$cont".fits data/ame1_init_"$tag".fits
-sed -i "s,^\(INITIAL_AMPLITUDE_MAP08[ ]*= \).*,\1'data/ame1_init_"$tag".fits',g" $inparam #ame
-
-cp "$base"/ame1_nup_c0001_k"$cont".fits data/ame1_nup_init_"$tag".fits
-sed -i "s,^\(INIT_INDEX_MAP08_01[ ]*= \).*,\1'data/ame1_nup_init_"$tag".fits',g" $inparam #ame
-
-cp "$base"/ame1_alpha_c0001_k"$cont".fits data/ame1_alpha_init_"$tag".fits
-sed -i "s,^\(INIT_INDEX_MAP08_02[ ]*= \).*,\1'data/ame1_alpha_init_"$tag".fits',g" $inparam #ame
-
-
-cp "$base"/hcn_c0001_k"$cont".fits data/hcn_init_"$tag".fits
-sed -i "s,^\(INITIAL_AMPLITUDE_MAP09[ ]*= \).*,\1'data/hcn_init_"$tag".fits',g" $inparam #hcn
-
-cp "$base"/hcn_W2_c0001_k"$cont".fits data/hcn-W2_init_"$tag".fits
-sed -i "s,^\(INIT_INDEX_MAP09_01[ ]*= \).*,\1'data/hcn-W2_init_"$tag".fits',g" $inparam #hcn
-
-cp "$base"/hcn_W3_c0001_k"$cont".fits data/hcn-W3_init_"$tag".fits
-sed -i "s,^\(INIT_INDEX_MAP09_02[ ]*= \).*,\1'data/hcn-W3_init_"$tag".fits',g" $inparam #hcn
-
-cp "$base"/hcn_W4_c0001_k"$cont".fits data/hcn-W4_init_"$tag".fits
-sed -i "s,^\(INIT_INDEX_MAP09_03[ ]*= \).*,\1'data/hcn-W4_init_"$tag".fits',g" $inparam #hcn
 
 

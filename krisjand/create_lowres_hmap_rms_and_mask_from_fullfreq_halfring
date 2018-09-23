@@ -1,0 +1,215 @@
+#!/bin/bash
+
+mask_dir=/mn/stornext/u3/krisjand/stornext/npipe_highres/data_npipe
+me=/mn/stornext/u3/krisjand/quiet_svn/oslo/src/f90/map_editor/map_editor
+freqs=("030" "044" "070" "100" "143" "217" "353" "545" "857")
+
+
+echo "Creating lowres hitmaps, RMS-maps and masks from full-frequency hmaps and wcov-rms-maps"
+
+
+if [ $# -ne 1 ] || [ "$1" = "help" ]; then
+    echo ""
+    echo "Syntax: create_lowres_hmap_rms_and_mask_fullfreq [npipe version] "
+    echo ""
+    echo "e.g. create_lowres_hmap_rms_and_mask_fullfreq npipe6v1"
+    echo ""
+    echo "NOTE: The output RMS maps are only for Temperature runs (not polarization)"
+    echo ""
+    exit
+fi
+
+for file in *hmap_sub1of2.fits *hmap_sub2of2.fits; do #first dealing with nside 1024 hmaps
+      if [[ $file = *\** ]]; then #Check if contains wildcard (Map does not exist)
+	  echo "WARNING: " $file " does not exist!"
+	  continue
+      elif [[ $file = *"n0064"* ]] || [[ $file = *"n0256"* ]]; then
+	  continue
+      fi
+      echo "Inputmap: $file"
+      $me size_info $file > size_info.txt
+      line=$(grep -F "nside" size_info.txt)
+      a_line=($line)
+      nside=${a_line[0])}
+      nmaps=${a_line[3])}
+      ordering=${a_line[6])}
+      echo "nside:    $nside"
+      echo "nmaps:    $nmaps"
+      echo "ordering: $ordering"
+      rm size_info.txt
+
+      
+      if [ -e ${file/hmap/n0256_hmap} ]; then
+	  echo "${file/hmap/n0256_hmap} already exists"
+      else
+	  echo "Creating n0256 hmap from: $file"
+	  $me ud_grade $file 256 ${file/hmap/n0256_hmap}
+	  ns_diff=$(($nside/256))
+	  scale_fac=$(($ns_diff*$ns_diff))
+	  echo "Relative nside diff: $ns_diff; scaling: $scale_fac"
+	  $me scale ${file/hmap/n0256_hmap} ${file/hmap/n0256_hmap} $scale_fac
+      fi
+
+      if [ -e ${file/hmap/n0064_hmap} ]; then
+	  echo "${file/hmap/n0064_hmap} already exists"
+      else
+	  echo "Creating n0064 hmap from: $file"
+	  $me ud_grade $file 64 ${file/hmap/n0064_hmap}
+	  ns_diff=$(($nside/64))
+	  scale_fac=$(($ns_diff*$ns_diff))
+	  echo "Relative nside diff: $ns_diff; scaling: $scale_fac"
+	  $me scale ${file/hmap/n0064_hmap} ${file/hmap/n0064_hmap} $scale_fac
+      fi
+done
+echo "------------------------------------"
+npipe=$1
+
+for ((i=0; i<${#freqs[@]}; i++)) ; do
+  freq=${freqs[$i]} #Frequency
+  echo "######################################"
+  if [ $freq -lt 100 ] ; then
+      echo "Frequency: $freq GHz (LFI)"
+  else
+      echo "Frequency: $freq GHz (HFI)"
+  fi
+  echo "######################################"
+
+  for inputmap in ${npipe}*${freq}"_hmap_sub1of2.fits" ${npipe}*${freq}"_hmap_sub2of2.fits"; do
+      if [[ $inputmap = *\** ]]; then #Check if contains wildcard (Map does not exist)
+	  echo "WARNING: " $inputmap " does not exist!"
+	  continue
+      fi
+      echo "Calculating sigma_0 for wcov-rms-map"
+      echo "Map: ${inputmap/hmap/rms_uK}"
+
+      if [ -e ${inputmap/hmap/rms_uK} ]; then
+	  rms_map=${inputmap/hmap/rms_uK}
+	  sig_unit="uK"
+      elif [ -e ${inputmap/hmap/rms_K} ]; then
+	  rms_map=${inputmap/hmap/rms_K}
+	  sig_unit="K"
+      else
+	  echo "WARNING: WCOV-RMS map ${inputmap/hmap/rms_uK} (or ${inputmap/hmap/rms_K}) does not exist"
+	  continue
+      fi
+
+      #get nside of hmap
+      $me size_info $inputmap > size_info.txt
+      line=$(grep -F "nside" size_info.txt)
+      a_line=($line)
+      nside=${a_line[0])}
+      nmaps=${a_line[3])}
+      ordering=${a_line[6])}
+      rm size_info.txt
+
+
+      mask_map=${inputmap/hmap/mask}
+      echo "WCOV-RMS map: $rms_map"
+
+      echo "Creating sqrt_hitmap"
+      $me sqrt $inputmap hmap_sqrt.fits
+      echo "Creating sigma_0 map"
+      $me multiply $rms_map hmap_sqrt.fits sigma_map.fits
+      echo "Creating masks"
+      $me zero2mask $inputmap mask_map1.fits
+      $me zero2mask $rms_map mask_map2.fits
+      $me multiply mask_map2.fits mask_map1.fits mask_map_temp.fits
+      $me multiply $mask_dir/mask_fullsky_n${nside}.fits mask_map_temp.fits $mask_map
+
+      echo "Calculating the mean of sigma_0" 
+      #Only calculate where both hmap (and rms) maps are non-zero
+      $me print_stats sigma_map.fits mask_map_temp.fits > print_sig.txt 
+      
+      $me print_stats $rms_map $mask_dir/mask_fullsky_n${nside}_tqu.fits > print_rms.txt
+
+      mean_sig_str=$(grep -F "Mean" print_sig.txt)
+      mean_sig_str_arr=($mean_sig_str)
+      max_sig_str=$(grep -F "Max" print_sig.txt)
+      max_sig_str_arr=($max_sig_str)
+      min_sig_str=$(grep -F "Min" print_sig.txt)
+      min_sig_str_arr=($min_sig_str)
+
+      pol_str_rms=$(grep -F "Pol" print_rms.txt)
+      pol_str_rms_arr=($pol_str_rms)
+      if [ ${#mean_sig_str_arr[@]} -lt 3 ];then
+	  echo "WARNING: problem reading print_stats of sigma map"
+	  continue #
+      else
+	  mean_sig[0]=${mean_sig_str_arr[2]}
+	  echo ""
+	  echo "Pol: T"
+	  echo "Mean sigma_0 = ${mean_sig_str_arr[2]})"
+	  echo "Min sigma_0 = ${min_sig_str_arr[2]}"
+	  echo "Max sigma_0 = ${max_sig_str_arr[2]}"
+	  n_pol=1
+      fi
+	  
+      rm print_rms.txt
+      rm print_sig.txt
+      rm sigma_map.fits
+      rm hmap_sqrt.fits
+      rm mask_map1.fits
+      rm mask_map2.fits
+      # we focus on T pol
+
+	  hit0064=${inputmap/hmap/n0064_hmap} 
+	  hit0256=${inputmap/hmap/n0256_hmap} 
+      if [[ $inputmap = *"sub1of2"* ]]; then
+	  mask0064=${mask_map/mask_sub1of2/n0064_sub1of2_mask}
+	  mask0256=${mask_map/mask_sub1of2/n0256_sub1of2_mask}
+	  rms0064=${mask_map/mask_sub1of2/n0064_sub1of2_rms_uK}
+	  rms0256=${mask_map/mask_sub1of2/n0256_sub1of2_rms_uK}
+      else
+	  mask0064=${mask_map/mask_sub2of2/n0064_sub2of2_mask}
+	  mask0256=${mask_map/mask_sub2of2/n0256_sub2of2_mask}
+	  rms0064=${mask_map/mask_sub2of2/n0064_sub2of2_rms_uK}
+	  rms0256=${mask_map/mask_sub2of2/n0256_sub2of2_rms_uK}
+
+      fi
+      
+      if [ ${#pol_str_rms_arr[@]} -eq 3 ];then
+	  n_pol=1
+	  rm mask_map_temp.fits
+      else
+	  n_pol=3
+	  mv mask_map_temp.fits ${mask_map/mask/mask_tqu}
+      fi
+      
+      echo ""
+      echo "Creating nside 64 and 256 RMS maps and masks!"
+      echo "Sigma_0: ${mean_sig[0]}"
+      echo $mask0064
+      echo $rms0064 
+      if [[ $inputmap = *"sub1of2"* ]]; then
+	  $me sbolo_rms $hit0064 ${mean_sig[0]} ${hit0064/_hmap_sub1of2.fits/_sub1of2} $sig_unit
+      else
+	  $me sbolo_rms $hit0064 ${mean_sig[0]} ${hit0064/_hmap_sub2of2.fits/_sub2of2} $sig_unit
+      fi
+      echo $mask0256
+      echo $rms0256
+      if [[ $inputmap = *"sub1of2"* ]]; then
+	  $me sbolo_rms $hit0256 ${mean_sig[0]} ${hit0256/_hmap_sub1of2.fits/_sub1of2} $sig_unit
+      else
+	  $me sbolo_rms $hit0256 ${mean_sig[0]} ${hit0256/_hmap_sub2of2.fits/_sub2of2} $sig_unit
+      fi
+      
+      if [ $n_pol = 3 ]; then
+	  echo ${mask0064/mask/mask_tqu}
+      	  $me multiply $mask_dir/mask_fullsky_n0064_tqu.fits $mask0064 ${mask0064/mask/mask_tqu}
+	  echo ${rms0064/rms/rms_tqu}
+	  $me multiply $mask_dir/mask_fullsky_n0064_tqu.fits $rms0064 ${rms0064/rms/rms_tqu}
+	  echo 1
+	  $me scale_TQU ${rms0064/rms/rms_tqu} ${rms0064/rms/rms_tqu} 1.0 ${mean_sig[0]} ${mean_sig[0]}
+	  echo ${mask0256/mask/mask_tqu}
+	  $me multiply $mask_dir/mask_fullsky_n0256_tqu.fits $mask0256 ${mask0256/mask/mask_tqu}
+	  echo ${rms0256/rms/rms_tqu}
+	  $me multiply $mask_dir/mask_fullsky_n0256_tqu.fits $rms0256 ${rms0256/rms/rms_tqu}
+	  echo 1
+	  $me scale_TQU ${rms0256/rms/rms_tqu} ${rms0256/rms/rms_tqu} 1.0 ${mean_sig[0]} ${mean_sig[0]}
+      fi
+      
+      echo "--------------------------------------"
+      echo ""
+  done
+done
+

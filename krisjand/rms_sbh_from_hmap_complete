@@ -1,0 +1,270 @@
+#!/bin/bash
+
+me=/mn/stornext/u3/krisjand/quiet_svn/oslo/src/f90/map_editor/map_editor
+#freqs=("545" "857")
+#freqs=("30" "44" "70" "100" "217")
+freqs=("30" "44" "70" "100" "143" "217" "353" "545" "857")
+
+echo "Creating lowres hmaps from fullres hmaps"
+
+
+if [ $# -ne 3 ]; then
+    echo ""
+    echo "Syntax: rms_sbh_from_hmap_complete [npipe version] [sigma file] [output dir]"
+    echo ""
+    echo "e.g. rms_sbh_from_hmap_complete npipe5v21 noise_levels.txt hmap_rms_mask/"
+    echo ""
+    echo "This complete nside script takes the original hmaps (of different nside) in"
+    echo "the same directory as the original skymaps."
+    echo "The output (in the directory specified) is the new hmaps (original nside, "
+    echo "n0064, n0256and n2048 if original nside is larger), as well as the corresponding"
+    echo "rms maps with its given mask."
+    echo ""
+    exit
+fi
+
+npipe=$1
+sig_file=$2
+if [ "${3:$((${#3}-1)):1}" = "/" ]; then
+    out_dir="${3:0:$((${#3}-1))}"
+else
+    out_dir="${3}"
+fi
+
+#Band labels for mus be checked
+
+l_np=${#npipe} #npipe version character length
+#l_LFI=$((11 + $l_np))
+#l_HFI=$((11 + $l_np))
+
+count=0
+while IFS="" read -r line; do
+    aline=($line)
+    label_ar[$count]=${aline[0]}
+    sig_ar[$count]=${aline[1]:0:10}
+    echo $count
+    echo ${label_ar[$count]}
+    echo ${sig_ar[$count]}
+    echo ""
+    count=$(($count + 1))
+
+done < $sig_file
+	  
+#first we create the new hmaps
+for ((i=0; i<${#freqs[@]}; i++)) ; do
+    freq=${freqs[$i]} #Frequency
+    for inputmap in ""${npipe}*${freq}*"_hmap.fits"; do # 
+	if [[ $inputmap = *\** ]]; then #Check if contains wildcard (Map does not exist)
+	    echo "WARNING: " $inputmap " does not exist!"
+	    echo "----------------------------------------------"
+	    echo ""
+	    continue
+	fi
+	echo "Input hmap:" $inputmap
+	#Get nside
+	$me size_info $inputmap > size_info.txt
+	line=$(grep -F "nside" size_info.txt)
+	a_line=($line)
+	nside=${a_line[0])}
+	nmaps=${a_line[3])}
+	ordering=${a_line[6])}
+	echo "nside = $nside"
+	rm size_info.txt
+
+	if [ $nside -eq 4096 ]; then
+	    ns_lowres=("64" "256" "2048")
+	else
+	    ns_lowres=("64" "256")
+	fi
+	
+	echo "Downgrading and scaling"
+	if [ -r $out_dir/${inputmap/hmap/hmap_n${nside}} ]; then
+	    bull=" "
+	else
+	    cp $inputmap $out_dir/${inputmap/hmap/hmap_n${nside}}
+	fi
+	for ((j=0; j<${#ns_lowres[@]}; j++)) ; do
+	    ns_diff=$(($nside/${ns_lowres[$j]}))
+	    scale_fac=$(($ns_diff*$ns_diff))
+	    echo "To nside: ${ns_lowres[$j]}, relative nside diff: $ns_diff; scaling: $scale_fac"
+	    ns_print=$(printf "%04d" ${ns_lowres[$j]})
+	    if [ -r $out_dir/${inputmap/hmap/hmap_n${ns_print}} ]; then 
+		bull=" " #just so we don't have to ud_grade unnecessary
+	    else
+		$me ud_grade $inputmap ${ns_lowres[$j]} temp.fits
+		$me scale temp.fits $out_dir/${inputmap/hmap/hmap_n${ns_print}} $scale_fac
+		rm temp.fits
+	    fi
+	done
+	echo "----------------------------------------------"
+	echo ""
+    done
+done
+
+echo "########################################"
+echo "#     Creating RMS maps with masks     #"
+echo "########################################"
+
+for ((i=0; i<${#freqs[@]}; i++)) ; do
+  freq=${freqs[$i]} #Frequency
+#  g=${gainz[$i]} # Gain for zodimap multiplication, only use if LFI gains differ from 0.15 0.28 and 0.56
+
+#  for inputmap in "npipe"${npipe}*${freq}*"_bmap.fits"; do
+  for inputmap in ""${npipe}*${freq}*"_bmap_K.fits"; do # 
+      if [[ $inputmap = *\** ]]; then #Check if contains wildcard (Map does not exist)
+	  echo "WARNING: " $inputmap " does not exist!"
+	  continue
+      fi
+
+      
+      echo "Input bmap:" $inputmap
+      #Get nside
+      $me size_info $inputmap > size_info.txt
+      line=$(grep -F "nside" size_info.txt)
+      a_line=($line)
+      nside=${a_line[0])}
+      nmaps=${a_line[3])}
+      ordering=${a_line[6])}
+      echo "nside bmap:" $nside
+      rm size_info.txt
+
+      if [ $nside -eq 4096 ]; then
+	  ns=("0064" "0256" "2048" "4096")
+      else
+	  ns=("0064" "0256" "$nside")
+      fi
+      
+      if [ $freq -lt 100 ] ; then
+	  echo "Frequency is LFI"
+      else
+	  echo "Frequency is HFI"
+      fi
+
+      inmap_base=${inputmap/bmap/hmap} #n0064
+      inmap_base=${inmap_base/_K.fits/.fits}
+      
+      if [ $freq -lt 100 ] ; then
+	  in_a="${inputmap/${freq}_/ }"
+	  in_a="${in_a/_bmap/ }"
+	  in_a=($in_a)
+	  channel=${in_a[1]}
+	  echo "The band is $channel"
+	  if [ -e $inmap_base ];then # sbolo, shorn don't have hmap
+	      sb="true"
+	      echo "single bolo"
+	  else #shorn
+	      sb="false"
+	      echo "single horn"
+	  fi
+      
+	  if [ "$sb" = "true" ]; then
+	      sig_1=0
+	      for ((j=0; j<${#sig_ar[@]}; j++)) ; do
+		  if [ "${label_ar[$j]}" = "$channel" ]; then
+		      sig_1=${sig_ar[$j]}
+		      break
+		  fi
+	      done 
+	      echo "Input hmap: $inmap_base"
+	      echo "sig_1 = $sig_1"
+	      for ((j=0; j<${#ns[@]}; j++)) ; do
+		  inmap=${inmap_base/hmap/hmap_n${ns[$j]}}
+		  inmap=$out_dir/$inmap
+		  echo "calc. nside: ${ns[$j]}"
+		  $me sbolo_rms ${inmap} ${sig_1} ${inmap/_hmap_n${ns[$j]}.fits/_n${ns[$j]}} K
+	      done
+	  else
+	      sig_1=0
+	      for ((j=0; j<${#sig_ar[@]}; j++)) ; do
+	      	  if [ "${label_ar[$j]}" = "${channel}M" ]; then
+		      sig_1=${sig_ar[$j]}
+		      break
+		  fi
+	      done 
+	      echo "Input hmaps: ${inmap_base/${channel}/${channel}M}"
+	      echo "             ${inmap_base/${channel}/${channel}S}"
+	      echo "sig_1 = $sig_1"
+	      sig_2=0
+	      for ((j=0; j<${#sig_ar[@]}; j++)) ; do
+	      	  if [ "${label_ar[$j]}" = "${channel}S" ]; then
+		      sig_2=${sig_ar[$j]}
+		      break
+		  fi
+	      done 
+	      echo "sig_2 = $sig_2"
+	      for ((j=0; j<${#ns[@]}; j++)) ; do
+		  inmap=${inmap_base/hmap/hmap_n${ns[$j]}}
+		  inmap=$out_dir/$inmap
+		  echo "calc. nside: ${ns[$j]}"
+		  
+		  $me shorn_rms ${inmap/$channel/${channel}M} ${sig_1} ${inmap/$channel/${channel}S} ${sig_2} ${inmap/_hmap_n${ns[$j]}.fits/_n${ns[$j]}} K
+	      done
+	  fi
+      
+
+      else
+	  in_a="${inputmap/_${freq}/ ${freq}}"
+	  in_a="${in_a/_bmap/ }"
+	  in_a=($in_a)
+	  channel=${in_a[1]}
+	  echo "The band is $channel"
+	  if [ -e $inmap_base ];then # sbolo, shorn don't have hmap
+	      sb="true"
+	      echo "single bolo"
+	  else #shorn
+	      sb="false"
+	      echo "single horn"
+	  fi
+      
+	  if [ "$sb" = "true" ]; then
+	      sig_1=0
+	      for ((j=0; j<${#sig_ar[@]}; j++)) ; do
+	      	  if [ "${label_ar[$j]}" = "$channel" ]; then
+		      sig_1=${sig_ar[$j]}
+		      break
+		  fi
+	      done 
+	      echo "Input hmap: ${inmap_base}"
+	      echo "sig_1 = $sig_1"
+	      for ((j=0; j<${#ns[@]}; j++)) ; do
+		  inmap=${inmap_base/hmap/hmap_n${ns[$j]}}
+		  inmap=$out_dir/$inmap
+		  echo "calc. nside: ${ns[$j]}"
+		  $me sbolo_rms ${inmap} ${sig_1} ${inmap/_hmap_n${ns[$j]}.fits/_n${ns[$j]}} K
+	      done
+#	  
+	  else
+	      sig_1=0
+	      for ((j=0; j<${#sig_ar[@]}; j++)) ; do
+	      	  if [ "${label_ar[$j]}" = "${channel}a" ]; then
+		      sig_1=${sig_ar[$j]}
+		      break
+		  fi
+	      done 
+	      echo "Input hmaps: ${inmap_base/${channel}/${channel}a}"
+	      echo "             ${inmap_base/${channel}/${channel}b}"
+	      echo "sig_1 = $sig_1"
+	      
+	      sig_2=0
+	      for ((j=0; j<${#sig_ar[@]}; j++)) ; do
+	      	  if [ "${label_ar[$j]}" = "${channel}b" ]; then
+		      sig_2=${sig_ar[$j]}
+		      break
+		  fi
+	      done 
+	      echo "sig_2 = $sig_2"
+	      for ((j=0; j<${#ns[@]}; j++)) ; do
+		  inmap=${inmap_base/hmap/hmap_n${ns[$j]}}
+		  inmap=$out_dir/$inmap
+		  echo "calc. nside: ${ns[$j]}"
+		  
+		  $me shorn_rms ${inmap/$channel/${channel}a} ${sig_1} ${inmap/$channel/${channel}b} ${sig_2} ${inmap/_hmap_n${ns[$j]}.fits/_n${ns[$j]}} K
+	      done
+	  fi
+      fi
+
+      echo ""
+      echo "-----------------------------------------------------"
+  done
+done
+

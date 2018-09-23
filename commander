@@ -1,0 +1,44 @@
+#!/bin/bash
+export OMP_NUM_THREADS=1
+param=$1 #parameter file
+
+if [ $# -ne 1 ]; then
+  echo "commander [parameter file]"
+  exit
+fi
+
+#Find chains directory in parameter file
+chains=$(awk -F'[=[:blank:]#]+' '$1 == "CHAIN_DIRECTORY" {print $2}' $param)
+chains="${chains%\'}"
+chains="${chains#\'}"
+mkdir $chains
+
+#Find number of bands in parameter file
+n=$(awk -F'[=[:blank:]#]+' '$1 == "NUMBAND" {print $2}' $param)
+
+#Copy param to chains
+cp $param $chains
+
+#Printing overview
+echo "--------------------------------------------"
+echo "PARAM:    " $param
+echo "DIR:      " $chains
+echo "NUMBANDS: " $n
+echo "--------------------------------------------"
+
+#Writing description of run to file and copying to chains dir
+read -p "Description: " description
+if [ ! -f $param ]; then
+    echo "File not found! Making new description file."
+else
+    sed -i "/$param/d" commander_runs.txt # Removing duplicate run descriptions
+fi
+echo $param " "  $description >> commander_runs.txt
+cp commander_runs.txt $chains
+
+#Go commander
+mpirun -n $n /mn/stornext/u3/trygvels/compsep/Commander/commander1/src/commander/commander $param 2>&1 | tee $chains/slurm.txt
+
+
+
+

@@ -1,0 +1,215 @@
+#!/bin/bash
+
+me=~/quiet_svn/oslo/src/f90/map_editor/map_editor
+
+trygve_k=$1
+nside_t=$2
+trygve_version=$3
+krisjand_k=$4
+nside_k=$5
+arcmin_k=$6
+
+if [ -z $6 ]
+then 
+    echo "Bash script needs 6 inputs:"
+    echo "[trygve_k] [nside_t] [trygve_version] [krisjand_k] [nside_k] [arcmin_k]"
+else
+    trygve_dir=/uio/hume/student-u68/trygvels/master/cdata/like/npipe5v5/chains_ml_npipe5_shb_n0064_${trygve_version}/
+
+
+
+    maps=(
+	"cmb_c0001_k"$krisjand_k"_n"$nside_k"_"$arcmin_k"arcmin.fits"
+	"co10_c0001_k"$krisjand_k"_n"$nside_k"_"$arcmin_k"arcmin.fits"
+	"co21_c0001_k"$krisjand_k"_n"$nside_k"_"$arcmin_k"arcmin.fits"
+	"co32_c0001_k"$krisjand_k"_n"$nside_k"_"$arcmin_k"arcmin.fits"
+	"dust_beta_c0001_k"$krisjand_k"_n"$nside_k"_"$arcmin_k"arcmin.fits"
+	"dust_T_c0001_k"$krisjand_k"_n"$nside_k"_"$arcmin_k"arcmin.fits"
+	"res_030_c0001_k"$krisjand_k"_n"$nside_k"_"$arcmin_k"arcmin.fits"
+	"res_044_c0001_k"$krisjand_k"_n"$nside_k"_"$arcmin_k"arcmin.fits"
+	"res_070_c0001_k"$krisjand_k"_n"$nside_k"_"$arcmin_k"arcmin.fits"
+	"res_100-1a_c0001_k"$krisjand_k"_n"$nside_k"_"$arcmin_k"arcmin.fits"
+	"res_100-1b_c0001_k"$krisjand_k"_n"$nside_k"_"$arcmin_k"arcmin.fits"
+	"res_100-2a_c0001_k"$krisjand_k"_n"$nside_k"_"$arcmin_k"arcmin.fits"
+	"res_100-2b_c0001_k"$krisjand_k"_n"$nside_k"_"$arcmin_k"arcmin.fits"
+	"res_100-3a_c0001_k"$krisjand_k"_n"$nside_k"_"$arcmin_k"arcmin.fits"
+	"res_100-3b_c0001_k"$krisjand_k"_n"$nside_k"_"$arcmin_k"arcmin.fits"
+	"res_100-4a_c0001_k"$krisjand_k"_n"$nside_k"_"$arcmin_k"arcmin.fits"
+	"res_100-4b_c0001_k"$krisjand_k"_n"$nside_k"_"$arcmin_k"arcmin.fits"
+	"res_143_c0001_k"$krisjand_k"_n"$nside_k"_"$arcmin_k"arcmin.fits"
+	"res_217-2_c0001_k"$krisjand_k"_n"$nside_k"_"$arcmin_k"arcmin.fits"
+	"res_217-3_c0001_k"$krisjand_k"_n"$nside_k"_"$arcmin_k"arcmin.fits"
+	"res_217-5a_c0001_k"$krisjand_k"_n"$nside_k"_"$arcmin_k"arcmin.fits"
+	"res_217-5b_c0001_k"$krisjand_k"_n"$nside_k"_"$arcmin_k"arcmin.fits"
+	"res_217-6_c0001_k"$krisjand_k"_n"$nside_k"_"$arcmin_k"arcmin.fits"
+	"res_217-7a_c0001_k"$krisjand_k"_n"$nside_k"_"$arcmin_k"arcmin.fits"
+	"res_217-7b_c0001_k"$krisjand_k"_n"$nside_k"_"$arcmin_k"arcmin.fits"
+	"res_217-8_c0001_k"$krisjand_k"_n"$nside_k"_"$arcmin_k"arcmin.fits"
+	"res_353-3_c0001_k"$krisjand_k"_n"$nside_k"_"$arcmin_k"arcmin.fits"
+	"res_353-4_c0001_k"$krisjand_k"_n"$nside_k"_"$arcmin_k"arcmin.fits"
+	"res_545-2_c0001_k"$krisjand_k"_n"$nside_k"_"$arcmin_k"arcmin.fits"
+	"res_857-2_c0001_k"$krisjand_k"_n"$nside_k"_"$arcmin_k"arcmin.fits"
+	"synch_beta_c0001_k"$krisjand_k"_n"$nside_k"_"$arcmin_k"arcmin.fits"
+	"synch_c0001_k"$krisjand_k"_n"$nside_k"_"$arcmin_k"arcmin.fits"
+	"dust_c0001_k"$krisjand_k"_n"$nside_k"_"$arcmin_k"arcmin.fits"
+	"chisq_c0001_k"$krisjand_k"_n"$nside_k"_"$arcmin_k"arcmin.fits"
+    )
+
+    trygve_maps=(
+	"cmb_c0001_k"$trygve_k".fits"
+	"co-100_c0001_k"$trygve_k".fits"
+	"co-217_c0001_k"$trygve_k".fits"
+	"co-353_c0001_k"$trygve_k".fits"
+	"dust_beta_c0001_k"$trygve_k".fits"
+	"dust_Td_c0001_k"$trygve_k".fits"
+	"residual_030_c01_k"$trygve_k".fits"
+	"residual_044_c01_k"$trygve_k".fits"
+	"residual_070_c01_k"$trygve_k".fits"
+	"residual_100-1a_c01_k"$trygve_k".fits"
+	"residual_100-1b_c01_k"$trygve_k".fits"
+	"residual_100-2a_c01_k"$trygve_k".fits"
+	"residual_100-2b_c01_k"$trygve_k".fits"
+	"residual_100-3a_c01_k"$trygve_k".fits"
+	"residual_100-3b_c01_k"$trygve_k".fits"
+	"residual_100-4a_c01_k"$trygve_k".fits"
+	"residual_100-4b_c01_k"$trygve_k".fits"
+	"residual_143_c01_k"$trygve_k".fits"
+	"residual_217-2_c01_k"$trygve_k".fits"
+	"residual_217-3_c01_k"$trygve_k".fits"
+	"residual_217-5a_c01_k"$trygve_k".fits"
+	"residual_217-5b_c01_k"$trygve_k".fits"
+	"residual_217-6_c01_k"$trygve_k".fits"
+	"residual_217-7a_c01_k"$trygve_k".fits"
+	"residual_217-7b_c01_k"$trygve_k".fits"
+	"residual_217-8_c01_k"$trygve_k".fits"
+	"residual_353-3_c01_k"$trygve_k".fits"
+	"residual_353-4_c01_k"$trygve_k".fits"
+	"residual_545_c01_k"$trygve_k".fits"
+	"residual_857_c01_k"$trygve_k".fits"
+	"synch_beta_c0001_k"$trygve_k".fits"
+	"synch_c0001_k"$trygve_k".fits"
+	"dust_c0001_k"$trygve_k".fits"
+	"chisq_c0001_k"$trygve_k".fits"
+    )
+
+    if [ $nside_t = $nside_k ]
+    then
+
+	for i in ${!maps[@]}; do
+	    echo $(($i + 1)) of ${#maps[@]}
+	    $me subtract ${maps[$i]} $trygve_dir${trygve_maps[$i]} ${maps[$i]/.fits/_diff.fits}
+            
+	done
+
+
+	echo "Plotting amplitudes"
+	map2png dust_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 500.
+	map2png synch_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 500.
+	#map2png co10_100-1_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -min 0. -max 2.
+	#map2png co10_100-2_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -min 0. -max 2.
+	#map2png co10_100-3_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -min 0. -max 2.
+	#map2png co10_100-4_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -min 0. -max 2.
+	#map2png co10_100-1a_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -min 0. -max 2.
+	#map2png co10_100-1b_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -min 0. -max 2.
+	#map2png co10_100-2a_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -min 0. -max 2.
+	#map2png co10_100-2b_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -min 0. -max 2.
+	#map2png co10_100-3a_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -min 0. -max 2.
+	#map2png co10_100-3b_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -min 0. -max 2.
+	#map2png co10_100-4a_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -min 0. -max 2.
+	#map2png co10_100-4b_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -min 0. -max 2.
+	map2png co10_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 2.
+	#map2png co21_217-1_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -min 0. -max 2.
+	#map2png co21_217-2_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -min 0. -max 2.
+	#map2png co21_217-3_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -min 0. -max 2.
+	#map2png co21_217-4_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -min 0. -max 2.
+	#map2png co21_217-5a_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -min 0. -max 2.
+	#map2png co21_217-5b_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -min 0. -max 2.
+	#map2png co21_217-5_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -min 0. -max 2.
+	#map2png co21_217-6a_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -min 0. -max 2.
+	#map2png co21_217-6b_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -min 0. -max 2.
+	#map2png co21_217-6_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -min 0. -max 2.
+	#map2png co21_217-7a_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -min 0. -max 2.
+	#map2png co21_217-7b_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -min 0. -max 2.
+	#map2png co21_217-7_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -min 0. -max 2.
+	#map2png co21_217-8a_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -min 0. -max 2.
+	#map2png co21_217-8b_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -min 0. -max 2.
+	#map2png co21_217-8_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -min 0. -max 2.
+	map2png co21_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 2.
+	#map2png co32_353-3_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -min 0. -max 2.
+	#map2png co32_353-4_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -min 0. -max 2.
+	map2png co32_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 2.
+
+
+	map2png cmb_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 250
+	map2png dust_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 500. 
+
+	echo "Plotting indices"
+	map2png dust_beta_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits  -bar -range 0.5
+	map2png dust_T_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits  -bar -range 5.
+	map2png synch_beta_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits  -bar -range 0.5
+
+	echo "Plotting chisq"
+	map2png chisq_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 80.
+
+
+	echo "plotting residuals"
+	map2png res_030_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	map2png res_044_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	map2png res_070_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	#map2png res_100-1_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	#map2png res_100-2_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	#map2png res_100-3_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	#map2png res_100-4_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	map2png res_100-1a_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	map2png res_100-1b_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	map2png res_100-2a_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	map2png res_100-2b_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	map2png res_100-3a_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	map2png res_100-3b_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	map2png res_100-4a_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	map2png res_100-4b_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	map2png res_143_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	#map2png res_217-1_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	map2png res_217-2_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	map2png res_217-3_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	#map2png res_217-4_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	#map2png res_217-5_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	map2png res_217-5a_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	map2png res_217-5b_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	map2png res_217-6_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	#map2png res_217-6a_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	#map2png res_217-6b_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	#map2png res_217-7_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	map2png res_217-7a_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	map2png res_217-7b_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	#map2png res_217-8a_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	#map2png res_217-8b_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	map2png res_217-8_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	#map2png res_353-1_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	#map2png res_353-2_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	#map2png res_353-3a_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	#map2png res_353-3b_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	map2png res_353-3_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	#map2png res_353-4a_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	#map2png res_353-4b_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	map2png res_353-4_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	#map2png res_353-5a_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	#map2png res_353-5b_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	#map2png res_353-5_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	#map2png res_353-6a_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	#map2png res_353-6b_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	#map2png res_353-6_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	#map2png res_353-7_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	#map2png res_353-8_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	#map2png res_545-1_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	map2png res_545-2_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 0.010
+	#map2png res_545-4_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	#map2png res_857-1_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	map2png res_857-2_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 0.010
+	#map2png res_857-3_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+	#map2png res_857-4_c0001_k${krisjand_k}_n${nside_k}_${arcmin_k}arcmin_diff.fits -bar -range 10.
+
+    else
+	echo "nside must be equal for both samples"
+    fi
+fi

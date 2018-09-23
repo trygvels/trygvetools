@@ -1,0 +1,408 @@
+#!/bin/bash
+
+
+
+echo " "
+if [ $# -lt 5 ] || [ $# -gt 6 ]; then
+    echo "####################################################"
+    echo "#       Creating input files for Commander 2       #"
+    echo "####################################################"
+    echo " "
+    echo "Syntax: create..files [input-chains-directory] [sample number #####] [n_side input] [npipe version (output)] [run version (output)] (optional: [input version])"
+    echo " E.g. create..files chains_npipe5v5_v1/ 500 64 npipe5v5 shb_krisjand_v3.6 (npipe5v5_v3) "
+    exit
+fi
+
+
+
+if [ -d $1 ]; then
+    input_dir=$1
+else
+    echo "Input directory does not exist"
+    exit
+fi
+
+if [ "${1:$((${#1}-1)):1}" = "/" ]; then #removes trailing '/' from directory path
+    input_dir="${1:0:$((${#1}-1))}"
+else
+    input_dir="${1}"
+fi
+
+
+# Checking that nside is a power of 2
+temp1=$(printf '%5d' $3)
+if [ $3 -lt 1 ]; then
+    echo $[ $temp1 < 1 ]
+    echo "n_side  must be a power of 2 equal to or larger than 1"
+    exit
+elif [ $temp1 == 1 ]; then
+    echo "n_side = 1"
+    nside=$3
+else
+    while [ $temp1 -gt 1 ]; do
+	if [ $(($temp1 % 2)) == 0 ]; then
+	    temp1=$(($temp1/2))
+	else
+	    echo "n_side  must be a power of 2 equal to or larger than 1"
+	    exit
+	fi
+    done
+    nside=$3
+fi
+
+# String for nside [####]
+nside_str=$(printf "%04d" $nside)
+
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
+#          These must/can be changed between users        #
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
+# mask_fullsky map for the given nside
+mf=/mn/stornext/u3/krisjand/stornext/npipe_highres/data_npipe/mask_fullsky_n${nside_str}.fits
+#outout directory
+output_dir=/mn/stornext/u3/krisjand/stornext/npipe_highres/data_npipe
+# map_editor
+me=/mn/stornext/u3/krisjand/quiet_svn/oslo/src/f90/map_editor/map_editor
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
+
+# assigning the other inputs
+num=$(printf "%05d\n" $2)
+npipe=$4
+run=$5
+
+if [ $# -eq 6 ]; then
+    lowres_version="(from_lowres_k"$num"_"$6")"
+else
+    lowres_version="(input_k"$num")"
+fi
+
+
+input_file_md=temp_amp_c0001_k${num}.dat
+output_file_md=md_init_${npipe}_${run}.dat
+
+
+echo "Making the mono-/dipole file"
+printf "%1s %11s %14s %14s %14s %14s %14s %14s %14s %14s %14s %14s %40s\n" \ "#" "Band" "M_def" "X_def" "Y_def" "Z_def" "M_mean" "X_mean" "Y_mean" "Z_mean" "M_rms" "D_rms" $lowres_version > ${output_dir}/${output_file_md}
+
+count=-1
+while IFS=' ' read -r -a line; do
+    line=$(echo $line | tr " " "\n")
+    count=$(($count +1))
+    #echo ${line[0]}
+    l0=${line[0]}
+    band[$count]=$l0
+    #echo $l0 #, ${freq[$count]}
+    #echo 1, $l0
+    l1=${line[1]}
+    #echo 2, $l1
+    l2=${line[2]}
+    #echo 3, $l2
+    l3=${line[3]}
+    #echo 4, $l3
+    l4=${line[4]}
+    #echo 5, $l4
+
+    if [ "$l2" = "0.0000000E+00" ] && [ "$l3" = "0.0000000E+00" ] && [ "$l4" = "0.0000000E+00" ]; then
+	dipole_rms="0.000E+00"
+    else
+	dipole_rms="1.e-6"
+    fi
+    printf "%14s %14s %14s %14s %14s %14s %14s %14s %14s %14s %14s\n" \ $l0 $l1 $l2 $l3 $l4 $l1 $l2 $l3 $l4 1.e-6 $dipole_rms >> ${output_dir}/${output_file_md}   
+done < ${input_dir}/${input_file_md}
+
+echo "Making the gain and bandpass file"
+
+freq=("030" "044" "070" "100" "143" "217" "353" "545" "857")
+line2RJ=(" 11.06 " " 14.01 " " 12.24 " "  1.00 ") # fill in this one with correct values
+input_file_gain=gain_no0001.dat
+input_file_bp=bp_no0001.dat
+input_file_LR=fg_ind_mean_no0001.dat
+output_file_gain_bp=instrument_params_init_${npipe}_${run}.dat
+
+
+# make arrays for the sample line and header (not sure if needed) in each file. 
+sample=$(echo $num | sed 's/^0*//') # replaces the first leading zeros in $num with blank spaces
+header_gain=$(sed -n 1p $input_dir/$input_file_gain)
+line_gain=$(grep -F " $sample " $input_dir/$input_file_gain) 
+# $(($num + 1)) doesn't work if $num has leading zeros
+
+header_bp=$(sed -n 1p $input_dir/$input_file_gain)
+line_bp=$(grep -F " $sample " $input_dir/$input_file_bp) 
+
+
+line_bp_arr=($line_bp)
+line_gain_arr=($line_gain)
+header_gain_arr_temp=($header_gain)
+header_bp_arr_temp=($header_bp)
+
+
+if [ ${line_bp_arr[0]} -ne ${sample} ];then
+    echo "Sample missmatch in bandpass file, sample not equal to input"
+    exit
+else
+    if [ ${line_gain_arr[0]} -ne ${sample} ]; then
+	echo "Sample missmatch in gain file, sample not equal to input"
+	exit
+    fi
+fi
+
+if [ ${header_bp_arr_temp[0]} == '#' ]; then
+    ind=-1
+    for i in `seq 1 $((${#header_bp_arr_temp[@]}-1))`; do
+	header_bp_arr[$(($i-1))]=${header_bp_arr_temp[$i]}
+    done
+else
+    header_bp_arr=(${header_bp_arr_temp[@]})
+fi
+
+if [ ${header_gain_arr_temp[0]} == '#' ]; then
+    ind=-1
+    for i in `seq 1 $((${#header_gain_arr_temp[@]}-1))`; do
+	header_gain_arr[$(($i-1))]=${header_gain_arr_temp[$i]}
+    done
+else
+    header_gain_arr=(${header_gain_arr_temp[@]})
+fi
+
+
+printf "%1s %11s %12s %16s %30s\n" \ "#" "Band" "Gain" "delta_bp" $lowres_version > ${output_dir}/${output_file_gain_bp}
+for i in ${!band[@]}; do
+    printf "%14s %14s %14s\n" \ ${band[$i]} ${line_gain_arr[$(($i+1))]} ${line_bp_arr[$(($i+1))]} >> ${output_dir}/${output_file_gain_bp}
+done
+
+
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
+# Creating init files for CO LR #
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
+
+echo "Making the CO-LR files"
+# to find all bands at 100, 217 and 353 GHz we use the following syntax.
+# band_split=(${band[index]/-/ }) 
+# this will split all occurences of '-' with a space ' ' in the band element 
+# (e.g '100-1a' --> '100 1a', and is then read into band_split so that 
+# ${band_split[0]} = frequency and ${band_split[1]} = bolometer (spider, sbolo or shorn)
+
+# !!!!!!!!!!!!!!!!!!!!! #
+# Starting with 100 GHz #
+# !!!!!!!!!!!!!!!!!!!!! #
+co_file_name="co10_line_template_${npipe}_${run}.dat"
+printf "%1s %10s %17s %14s %11s %9s %40s\n" \ "#" "Band" "LR mean" "LR RMS" "line2RJ" "Poltype" $lowres_version > ${output_dir}/${co_file_name}
+
+#echo ${band[@]}
+for i in ${!band[@]}; do
+#echo 1
+#echo ${band[i]}
+    band_split=(${band[$i]/-/ })
+    if [ ${band_split[0]} = 100 ]; then
+#	echo 2
+	co_band_file="${input_dir}/co-100_${band[$i]}_c0001_k${num}.fits"
+	if [ -r $co_band_file ]; then
+#	    echo $co_band_file
+	    $me print_stats ${co_band_file} $mf > co_band_stats.txt
+	    mean_line=$(grep -F "Mean" co_band_stats.txt)
+	    mean_line_arr=($mean_line)
+	    if [ "${mean_line_arr[0]}" = "Mean" ]; then
+		temp_mean=${mean_line_arr[2]}
+#		echo 4
+	    else
+		echo "Something is wrong with map_editor print_stats. Check code"
+		exit
+	    fi
+	else
+	    temp_mean=(1.00000000000000)
+	    # if file doesn't exist but the band is in the md-file, it means that the band 
+	    # is the reference band
+	fi
+	# Write to the co_line_template file
+	printf "%14s %20s %10s %10s %10s\n" \ ${band[$i]} $temp_mean 0.0000 ${line2RJ[0]} "   1   " >> ${output_dir}/${co_file_name}
+    fi
+done
+
+
+# !!!!!!!!!!!!!!!!!!!!! #
+# Init file for 217 GHz #
+# !!!!!!!!!!!!!!!!!!!!! #
+co_file_name=co21_line_template_${npipe}_${run}.dat
+printf "%1s %10s %17s %14s %11s %9s %40s\n" \ "#" "Band" "LR mean" "LR RMS" "line2RJ" "Poltype" $lowres_version > ${output_dir}/${co_file_name}
+
+for i in ${!band[@]}; do
+    band_split=(${band[$i]/-/ })
+    if [ ${band_split[0]} = 217 ]; then
+	co_band_file=${input_dir}/co-217_${band[$i]}_c0001_k${num}.fits
+	if [ -r $co_band_file ]; then
+	    $me print_stats ${co_band_file} $mf > co_band_stats.txt
+	    mean_line=$(grep -F "Mean" co_band_stats.txt)
+	    mean_line_arr=($mean_line)
+	    if [ ${mean_line_arr[0]} = Mean ]; then
+		temp_mean=${mean_line_arr[2]}
+	    else
+		echo "Something is wrong with map_editor print_stats. Check code"
+		exit
+	    fi
+	else
+	    temp_mean=(1.00000000000000)
+	    # if file doesn't exist but the band is in the md-file, it means that the band 
+	    # is the reference band
+	fi
+	# Write to the co_line_template file
+	printf "%14s %20s %10s %10s %10s\n" \ ${band[$i]} $temp_mean 0.0000 ${line2RJ[1]} "   1   " >> ${output_dir}/${co_file_name}
+    fi
+done
+
+rm co_band_stats.txt
+
+# !!!!!!!!!!!!!!!!!!!!! #
+# Init file for 353 GHz #
+# !!!!!!!!!!!!!!!!!!!!! #
+co_file_name=co32_line_template_${npipe}_${run}.dat
+printf "%1s %10s %17s %14s %11s %9s %40s\n" \ "#" "Band" "LR mean" "LR RMS" "line2RJ" "Poltype" $lowres_version > ${output_dir}/${co_file_name}
+
+for i in ${!band[@]}; do
+    band_split=(${band[$i]/-/ })
+    if [ ${band_split[0]} = 353 ]; then
+	co_band_file=${input_dir}/co-353_${band[$i]}_c0001_k${num}.fits
+	if [ -r $co_band_file ]; then
+	    $me print_stats ${co_band_file} $mf > co_band_stats.txt
+	    mean_line=$(grep -F "Mean" co_band_stats.txt)
+	    mean_line_arr=($mean_line)
+	    if [ ${mean_line_arr[0]} = Mean ]; then
+		temp_mean=${mean_line_arr[2]}
+	    else
+		echo "Something is wrong with map_editor print_stats. Check code"
+		exit
+	    fi
+	else
+	    temp_mean=(1.00000000000000)
+	    # if file doesn't exist but the band is in the md-file, it means that the band 
+	    # is the reference band
+	fi
+	# Write to the co_line_template file
+	printf "%14s %20s %10s %10s %10s\n" \ ${band[$i]} $temp_mean 0.0000 ${line2RJ[2]} "   1   " >> ${output_dir}/${co_file_name}
+    fi
+done
+
+
+# !!!!!!!!!!!!!!!!!!!!! #
+# Init file for HCN #
+# !!!!!!!!!!!!!!!!!!!!! #
+hcn_file_name=hcn_line_template_${npipe}_${run}.dat
+printf "%1s %10s %17s %14s %11s %9s %40s\n" \ "#" "Band" "LR mean" "LR RMS" "line2RJ" "Poltype" $lowres_version > ${output_dir}/${hcn_file_name}
+
+for ((i=1;i<5;i++)); do
+    hcn_band_file=${input_dir}/hcn_W${i}_c0001_k${num}.fits
+    if [ -r $hcn_band_file ]; then
+	$me print_stats ${hcn_band_file} $mf > hcn_band_stats.txt
+	mean_line=$(grep -F "Mean" hcn_band_stats.txt)
+	mean_line_arr=($mean_line)
+	if [ ${mean_line_arr[0]} = Mean ]; then
+	    temp_mean=${mean_line_arr[2]}
+	else
+	    echo "Something is wrong with map_editor print_stats. Check code"
+	    exit
+	fi
+    else
+	temp_mean=(1.00000000000000)
+	# if file doesn't exist but the band is in the md-file, it means that the band 
+	# is the reference band
+    fi
+    # Write to the co_line_template file
+    printf "%14s %20s %10s %10s %10s\n" \ W${i} $temp_mean 0.0000 ${line2RJ[3]} "   1   " >> ${output_dir}/${hcn_file_name}
+    
+done
+
+rm hcn_band_stats.txt
+
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
+# Smoothing init_maps for Commander #
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
+
+echo "Smoothing init maps", nside $nside --> 2048
+# First set smoothing values depending on nside. May set more/edit existing cases later.
+case "$nside" in
+64) lmax=6000
+    arcmins=60
+    ;;
+256) lmax=6000
+    arcmins=14
+    ;;
+1024) lmax=6000
+    arcmins=4
+    ;;
+*)  echo "l_max and arcmins not yet defined for given n_side"
+    exit
+    ;;
+esac
+
+maps=(
+"dust_Td_c0001_k"$num".fits"
+"dust_beta_c0001_k"$num".fits"
+"synch_beta_c0001_k"$num".fits"
+"synch_c0001_k"$num".fits"
+"dust_c0001_k"$num".fits"
+"cmb_c0001_k"$num".fits"
+"co-100_c0001_k"$num".fits"
+"co-217_c0001_k"$num".fits"
+"co-353_c0001_k"$num".fits"
+"hcn_c0001_k"$num".fits"
+"ff_c0001_k"$num".fits"
+"ff_T_e_c0001_k"$num".fits"
+"ame1_nup_c0001_k"$num".fits"
+"ame1_alpha_c0001_k"$num".fits"
+"ame1_c0001_k"$num".fits"
+)
+
+outmaps=(
+"init_dust_T_"$npipe"_n2048_"$arcmins"arcmin_"$run".fits"
+"init_dust_beta_"$npipe"_n2048_"$arcmins"arcmin_"$run".fits"
+"init_synch_beta_"$npipe"_n2048_"$arcmins"arcmin_"$run".fits"
+"init_synch_"$npipe"_n2048_"$arcmins"arcmin_"$run".fits"
+"init_dust_"$npipe"_n2048_"$arcmins"arcmin_"$run".fits"
+"init_cmb_"$npipe"_n2048_"$arcmins"arcmin_"$run".fits"
+"init_co10_"$npipe"_n2048_"$arcmins"arcmin_"$run".fits"
+"init_co21_"$npipe"_n2048_"$arcmins"arcmin_"$run".fits"
+"init_co32_"$npipe"_n2048_"$arcmins"arcmin_"$run".fits"
+"init_hcn_"$npipe"_n2048_"$arcmins"arcmin_"$run".fits"               
+"init_ff_"$npipe"_n2048_"$arcmins"arcmin_"$run".fits"
+"init_ff_T_e_"$npipe"_n2048_"$arcmins"arcmin_"$run".fits"
+"init_ame1_nup_"$npipe"_n2048_"$arcmins"arcmin_"$run".fits"
+"init_ame1_alpha_"$npipe"_n2048_"$arcmins"arcmin_"$run".fits"
+"init_ame1_"$npipe"_n2048_"$arcmins"arcmin_"$run".fits")
+
+# ud_grade so one may use higher l_max
+# save to a temporary file which is later removed so the inputs are not overwritten
+for i in ${!maps[@]}; do
+    $me ud_grade $input_dir/${maps[$i]} 2048 $output_dir/${maps[$i]/.fits/_n2048_udgrade.fits}
+    $me smooth g2g $output_dir/${maps[$i]/.fits/_n2048_udgrade.fits} 0 $lmax 2048 0. $arcmins $output_dir/${outmaps[$i]}
+    rm $output_dir/${maps[$i]/.fits/_n2048_udgrade.fits}
+    
+    if [ "${maps[$i]}" = "co-100_c0001_k"$num".fits" ]; then
+	$me scale $output_dir/${outmaps[$i]} $output_dir/${outmaps[$i]} 11.06
+    elif [ "${maps[$i]}" = "co-217_c0001_k"$num".fits" ]; then
+	$me scale $output_dir/${outmaps[$i]} $output_dir/${outmaps[$i]} 14.01
+    elif [ "${maps[$i]}" = "co-353_c0001_k"$num".fits" ]; then
+	$me scale $output_dir/${outmaps[$i]} $output_dir/${outmaps[$i]} 12.24
+    fi
+done
+
+echo "Plotting init maps"
+# Plot init maps to check for "ringing"
+map2png $output_dir/${outmaps[0]} -bar -min 14. -max 35.
+map2png $output_dir/${outmaps[1]} -bar -min  1.3 -max 2.
+map2png $output_dir/${outmaps[2]} -bar -min -4. -max -1.5
+map2png $output_dir/${outmaps[3]} -bar -min  0. -max 1000. 
+map2png $output_dir/${outmaps[4]} -bar -min  0. -max 1000.
+map2png $output_dir/${outmaps[5]} -bar -range 250
+map2png $output_dir/${outmaps[6]} -bar -min  0. -max 10.
+map2png $output_dir/${outmaps[7]} -bar -min  0. -max 10.
+map2png $output_dir/${outmaps[8]} -bar -min  0. -max 10.
+map2png $output_dir/${outmaps[9]} -bar -min  0. -max 2.
+map2png $output_dir/${outmaps[10]} -bar -min  0. -max 1e6
+map2png $output_dir/${outmaps[11]} -bar -min  5000 -max 8000
+map2png $output_dir/${outmaps[12]} -bar -min  17. -max 23.
+map2png $output_dir/${outmaps[13]} -bar 
+map2png $output_dir/${outmaps[14]} -bar -min  0. -max 300.
+
+
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
+#           End of file            #
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#

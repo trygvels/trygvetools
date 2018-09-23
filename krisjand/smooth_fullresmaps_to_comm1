@@ -1,0 +1,146 @@
+#!/bin/bash
+
+# from mdc bash script
+# here we only subtract the quadrupole, and let the dipole stay in the maps
+
+me=/mn/stornext/u3/krisjand/quiet_svn/oslo/src/f90/map_editor/map_editor
+
+freqs=("30" "44" "70" "100" "143" "217" "353" "545" "857")
+#freqs=("30" "44" "70" "100" "217")
+#freqs=("143" "353" "545" "857")
+#freqs=("857")
+beam_dir=/mn/stornext/u3/krisjand/stornext/npipe_highres/data_npipe
+
+
+if [ $# -lt 3 ] || [ $# -gt 4 ]; then
+    echo ""
+    echo "Syntax: ...fullres [arcmins] [inputmap dir] [output dir (from input_dir)] [nside string (optional)]"
+    echo ""
+    echo 'e.g. ..fullres 40 ./ ../40arcmin "64 256"'
+    echo ""
+    exit
+else
+    echo ""
+    echo "############################################"
+    echo "#     Smoothing skymaps for Commander1     #"
+    echo "############################################"
+    echo ""
+fi
+
+arcmins=$1
+if [ "${2:$((${#2}-2)):2}" = "./" ]; then
+    inmap_dir=$(pwd)
+elif [ "${2:$((${#2}-1)):1}" = "/" ]; then
+    inmap_dir="${2:0:$((${#2}-1))}"
+else
+    inmap_dir="${2}"
+fi
+
+if [ "${3:$((${#3}-1)):1}" = "/" ]; then
+    out_dir="${3:0:$((${#3}-1))}"
+else
+    out_dir="${3}"
+fi
+
+if [ $# -eq 4 ]; then
+    nside_out=($4)
+    echo "Checking nside out"
+    echo ""
+    for ((i=0; i<${#nside_out[@]}; i++)); do
+	temp1=$(printf '%5d' ${nside_out[$i]})
+
+	if [ ${nside_out[$i]} -lt 1 ] || [ ${nside_out[$i]} -gt 1024 ]; then
+	    echo "'nside out' (${nside_out[$i]}) must be a power of 2, 1 <= nside <= 1024"
+	    exit
+	elif [ $temp1 == 1 ]; then
+	    echo "nside_out = 1"
+	else
+	    while [ $temp1 -gt 1 ]; do
+		if [ $(($temp1 % 2)) == 0 ]; then
+		    temp1=$(($temp1/2))
+		else
+		    echo "'nside out' (${nside_out[$i]}) must be a power of 2, 1 <= nside <= 1024"
+		    exit
+		fi
+	    done
+	    
+	fi
+	nside_out_str[$i]=$(printf "%04d" ${nside_out[$i]})
+    done
+else
+    nside_out="standard"
+    echo "No UD-grading"
+    echo ""
+fi
+
+curr_path=$(pwd)
+echo "Current path: $curr_path"
+if [ "$inmap_dir" = "curr_path" ]; then
+    echo ""
+else
+    echo "Moving from current path into $inmap_dir"
+    echo ""
+fi
+cd $inmap_dir
+
+echo "Output directory: $out_dir"
+echo ""
+for ((i=0; i<${#freqs[@]}; i++)) ; do
+  freq=${freqs[$i]} #Frequency
+  for inputmap in "npipe"*${freq}*"_QUADCOR_uK.fits" "npipe"*${freq}*"_QUADCOR"*"sub"*"of2_uK.fits" "npipe"*${freq}*"QUADCOR_bp"*"corrected_uK.fits" "npipe"*${freq}*"QUADCOR_pol_corrected_uK.fits"; do   
+
+      if [[ $inputmap = *\** ]]; then #Check if contains wildcard (Map does not exist)
+          echo "WARNING: " $inputmap " does not exist!"
+          continue
+      fi
+
+      echo "----------------------------------------------------------------------------------"
+      echo "Frequency: " ${freq}
+      echo "Input map: " ${inputmap}
+
+      outmap=${inputmap/QUADCOR/QUADCOR_${arcmins}arcmin}
+      if [ $freq -lt 100 ]; then #exclude snb bands in LFI 
+	  if [[ $inputmap = *"LFI"* ]]; then
+	      continue
+	  fi
+
+	  l_max=3000
+	  nside=1024
+
+	  beam=bl_0${freq}_TT_extended_normalized.fits
+	  $me smooth f2g $inputmap 0 3000 1024 $beam_dir/$beam $arcmins $out_dir/$outmap
+      else
+	  nside=2048
+	  l_max=6000
+	  beam_file=beam_dx12v2_${freq}x${freq}_extended.fits
+	  if [ -r $beam_dir/$beam_file ]; then
+	      $me smooth f2g $inputmap 0 6000 2048 $beam_dir/$beam_file $arcmins $out_dir/$outmap
+	  else
+	      echo "Beam file $beam_dir/$beam_file not found!"
+	      echo ""
+	  fi
+      fi
+
+      if [ "$nside_out" = "standard"  ]; then
+	  echo ""
+      else
+	  for ((j=0; j<${#nside_out[@]}; j++)); do
+	      echo "UD grading to nside ${nside_out[$j]}"
+	      $me ud_grade $out_dir/$outmap ${nside_out[$j]} $out_dir/${outmap/QUADCOR/QUADCOR_n${nside_out_str[$j]}}
+	      echo ""
+	  done
+      fi
+      
+      if [ $freq == 857 ] ; then
+	  map2png $out_dir/${outmap} -bar -min 0 -max 4000000
+      elif  [ $freq == 545 ] ; then
+	  map2png $out_dir/${outmap} -bar -min 0 -max 40000
+      elif  [ $freq == 353 ] ; then
+	  map2png $out_dir/${outmap} -bar -min 0 -max 3000
+      else
+	  map2png $out_dir/${outmap} -bar -min 0 -max 300
+      fi
+  done
+done
+
+cd $curr_path

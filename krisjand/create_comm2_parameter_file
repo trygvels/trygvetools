@@ -1,0 +1,570 @@
+#!/bin/bash
+
+# This bash-script reads input from user and from a data file to set up a 
+# parameter file for running Commander 2 .
+# It is written as a partly interactive script
+
+param_file="param_comm2_npipe5v5_sbolo_krisjand_v4.0.txt"
+
+echo ""
+echo "#####################################"
+echo "# Create Commander 2 parameter file #"
+echo "#####################################"
+echo ""
+
+len_of_options=${#3}
+
+if [ $# -lt 2 ] || [ $# -gt 5 ] || [ $len_of_options -gt 3 ] || [ "$1" = "help" ]; then
+    echo ""
+    echo "Syntax: [MD-file] [run version] [options] ( [file name of option(s) in order] )"
+    echo ""
+    echo "Options: 'n' - file with npipe versions of LFI, HFI, and single frequency bands."
+    echo "         'p' - base parameter file, (default: '"$param_file"')."
+    echo ""
+    exit
+fi
+
+if [ -r $1 ]; then
+    md_file=$1
+else
+    echo "The specified mono-/dipole file does not exist or can not be read."
+    echo ""
+    exit
+fi
+
+if [ $len_of_options -gt 0 ]; then
+    np_str="$3"
+    if [ $len_of_options -eq 1 ]; then
+	np_arr[0]=$4
+    else
+	np_arr[0]=$4
+	np_arr[1]=$5
+    fi
+    n_input="false"
+    p_input="false"
+    valid_count=0
+    for i in $(seq 0 $(($len_of_options - 1))); do
+	if [ "${np_str:$i:1}" = "n" ]; then 
+	    if [ -n "${np_arr[$valid_count]}" ] && [ -r "${np_arr[$valid_count]}" ]; then 
+		n_input="true"
+		npipe_input_file="${np_arr[$valid_count]}"
+		valid_count=$(($valid_count + 1))
+		continue
+	    else
+		echo "ERROR: npipe input file can not be read! Exiting script."
+		echo ""
+		exit
+	    fi
+	fi
+    	if [ "${np_str:$i:1}" = "p" ]; then 
+	    if [ -n "${np_arr[$valid_count]}" ] && [ -r "${np_arr[$valid_count]}" ]; then 
+		p_input="true"
+	        param_file="${np_arr[$valid_count]}"
+		valid_count=$(($valid_count + 1))
+		continue
+	    else
+		echo "ERROR: parameter input file can not be read! Exiting script."
+		echo ""
+		exit
+	    fi
+	fi
+	if [ $i -ne $(($valid_count - 1)) ]; then
+	    echo "ERROR: input option(s) not valid! Exiting script."
+	    echo ""
+	    exit
+	fi
+    done
+fi
+
+num_add_band=0
+add_npipe="false"
+LFI_npipe="false"
+HFI_npipe="false"
+if [ $n_input = "true" ]; then
+    while IFS=" \n" read -r line; do
+	aline=($line)
+	if [ -z ${aline[0]} ] || [ "${aline[0]:0:1}" = "#" ];then 
+	    continue
+	elif [ ${#aline[@]} -gt 2 ]; then
+	    echo "ERROR: More than 2 arguments per line in argument "$(($num_add_band + 1))" in npipe file." 
+	    exit
+	else
+	    if [ "${aline[0]}" = "LFI" ]; then
+		LFI_npipe=${aline[1]}
+	    elif [ "${aline[0]}" = "HFI" ]; then
+		HFI_npipe=${aline[1]}
+	    else
+		npipe_add_band[$num_add_band]=${aline[0]}
+		npipe_add_version[$num_add_band]=${aline[1]}
+		num_add_band=$(($num_add_band + 1)) # add 1 band, note band nr. i is in npipe_add_band[i-1]
+	    fi
+	fi
+    done < $npipe_input_file
+    if [ $num_add_band -gt 0 ]; then
+	add_npipe="true"
+    fi
+fi
+
+run_version=$2
+valid_name="false"
+if [ "$LFI_npipe" = "false" ];then
+    echo ""
+    echo "Npipe version of the LFI bands are not specified!"
+    echo "Enter a npipe version for LFI, followed by [Enter]:"
+    read input
+    LFI_npipe=($input)
+    echo ""
+    valid_input="false"
+    while [ $valid_input = "false" ]; do
+	if [ ${#LFI_npipe[@]} -ne 1 ]; then
+	    echo "Enter only one input for LFI npipe version:"
+	    read input
+	    LFI_npipe=($input)
+	    continue
+	fi
+	valid_input="true"
+    done
+fi
+
+if  [ "$HFI_npipe" = "false" ]; then
+    echo ""
+    echo "Npipe version of the HFI bands are not specified!"
+    echo "Enter a npipe version for HFI, followed by [Enter]:"
+    read input
+    HFI_npipe=($input)
+    echo ""
+    valid_input="false"
+    while [ $valid_input = "false" ]; do
+	if [ ${#HFI_npipe[@]} -ne 1 ]; then
+	    echo "Enter only one input for HFI npipe version:"
+	    read input
+	    HFI_npipe=($input)
+	    continue
+	fi
+	valid_input="true"
+    done
+fi
+
+valid_input2="false"
+while [ $valid_input2 = "false" ]; do
+    temp_param="param_comm2_npipe"$HFI_npipe"_sbolo_krisjand_v"$run_version".txt"
+    if [ -e $temp_param ]; then
+	echo "The parameter file '"$temp_param"' already exists!"
+	echo "Do you want to overwrite it (y/n)?"
+	read input
+	statement=($input)
+	valid_input3="false"
+	while [ $valid_input3 = "false" ]; do
+	    if [ ${#statement[@]} -eq 1 ] && [ $statement = "y" ]; then		    
+		valid_input3="true"
+		valid_input2="true"
+		param_out=$temp_param
+		continue
+	    elif [ ${#statement[@]} -eq 1 ] && [ $statement = "n" ]; then
+		valid_input3="true"
+		continue
+	    else
+		echo "Enter 'y' or 'n':"
+		read input
+		statement=($input)
+	    fi
+	done
+    else
+	param_out=$temp_param
+	valid_input2="true"
+	continue
+    fi
+
+    if [ $valid_input2 = "false" ]; then
+	echo ""
+	echo "Enter a new run version for the Commander 2 parameter file, followed by [Enter]:"
+	read input
+	run_version=($input)
+	echo ""
+	valid_input="false"
+	while [ $valid_input = "false" ]; do
+	    if [ ${#run_version[@]} -ne 1 ]; then
+		echo "Enter only one input for the run version:"
+		read input
+		run_version=($input)
+		continue
+	    fi
+	    valid_input="true"
+	done
+    fi
+done
+# The following text is commented out as it is retrived from file
+## Checking if user wants additional npipe versions for specific channels
+## If yes, enter a loop where the user specifies band name and npipe version.
+#echo ""
+#echo "Are there any additional npipe versions to those given above? (y/n):"
+#read input
+#statement=($input)
+#echo ""
+#valid_input="false"
+#while [ $valid_input = "false" ]; do
+#    if [ ${#statement[@]} -eq 1 ] && [ $statement = "y" ]; then
+# 	echo "Enter band name and npipe version (for the additional), end loop with 'done':"
+#       read input
+#	new_band=($input)
+#	num_band=0      # variable keeping track of how many bands are specified
+#	valid_input2="false"
+#	while [ $valid_input2 = "false" ]; do
+#	    if [ ${#new_band[@]} -eq 1 ] && [ $new_band = "done" ]; then
+#		if [ $num_band -eq 0 ]; then
+#	    echo "No additional bands found"
+#		    echo ""
+#		    add_npipe="false"    # variable telling whether or not additional npipe versions have been specified
+#		    valid_input2="true"
+#		    continue
+#		else
+#		    echo $num_band "additional band(s) found:"
+#		    for i in $(seq 0 $(($num_band - 1))); do
+#			echo ${npipe_add_band[$i]} ${npipe_add_version[$i]}
+#		    done
+#		    echo ""
+#		    echo "Is this correct (y/n)? no discards all given bands:"
+#		    read input
+#		    statement=($input)
+#		    valid_input3="false"
+#		    while [ $valid_input3 = "false" ]; do
+#			if [ ${#statement[@]} -eq 1 ] && [ $statement = "y" ]; then		    
+#			    add_npipe="true"
+#			    valid_input2="true"
+#		    	    valid_input3="true"
+#			    continue
+#			elif [ ${#statement[@]} -eq 1 ] && [ $statement = "n" ]; then
+#			    num_band=0
+#			    npipe_add_band=""
+#			    npipe_add_version=""		    
+#			    echo "Enter band name and npipe version (for the additional), end loop with 'done':"
+#			    read input
+#			    new_band=($input)
+#			    valid_input3="true"
+#			    continue
+#			else
+#			    echo "Enter 'y' or 'n':"
+#			    read input
+#			    statement=($input)
+#			fi
+#		    done
+#		fi
+#		continue
+#	    elif [ ${#new_band[@]} -ne 2 ]; then
+#		echo "Enter two arguments: [band name] [npipe version]"
+#		read input
+#		new_band=($input)
+#		continue
+#	    fi
+#	    npipe_add_band[$num_band]=${new_band[0]}
+#	    npipe_add_version[$num_band]=${new_band[1]}
+#	    num_band=$(($num_band + 1)) # add 1 band, note band nr. i is in npipe_add_band[i-1]
+#	    read input
+#	    new_band=($input)
+#	done
+#	valid_input="true"
+#    elif [ ${#statement[@]} -eq 1 ] && [ $statement = "n" ]; then
+#	valid_input="true"
+#	add_npipe="false"
+#	continue
+#    else
+#	echo "Enter 'y' or 'n':"
+#	read input
+#	statement=($input)
+#    fi
+#    
+#done
+
+
+
+# Now we read the active bands from the MD-file and put them into an active-band-array
+band_ind_count=-1
+while IFS="" read -r line; do
+    aline=($line)
+    if [ -z ${aline[0]} ] || [ ${aline[0]} = "#" ]; then
+	continue
+    else
+	band_ind_count=$(($band_ind_count + 1))
+	#echo $band_ind_count
+	active_bands[$band_ind_count]=${aline[0]}
+	#echo ${active_bands[$band_ind_count]}
+    fi
+done < $md_file
+
+# now we need to start reading from parameter file
+printf '%s' \ "# This parameter file was created from ${md_file} and ${param_file}" > $param_out
+all_band_ind=0
+while IFS="" read -r line; do
+    printf '\n' >> $param_out
+
+    #want to create an array of the string elements of each line to check for given keywords
+    aline=($line) #aline = array of the elements in 'line'
+
+    #check if line is the output directory
+    if [ -n ${aline[0]} ] && [ "${aline[0]}" = "OUTPUT_DIRECTORY" ]; then
+	str_out_dir="chains_npipe"$HFI_npipe"_krisjand_v"$run_version
+	line_out="${line/${aline[2]}/$str_out_dir}"
+	printf '%s' \ "${line_out}" >> $param_out
+	continue
+    fi
+
+    # Now we get into the bands. We start by finding the "keyword"
+    # exchange '0' (from e.g. '..BAND001') with blank space ' ' (e.g. '..BAND  1')
+    # exchange '1' with ' ' from temp_line (in case more than 100 bands or 10 components)
+    # We can use temp_line to search for many (!!!) different keywords at the start of each line
+    # If ever #bands > 199 or #comp > 19, add an exchange of '2' with ' ' as well
+    temp_line="${aline[0]/0/ }"
+    temp_line="${temp_line/1/ }"
+    line_if=($temp_line)
+    #check if line is an 'include_band' line
+
+    if [ -n ${line_if[0]} ] && [ "${line_if[0]}" = "INCLUDE_BAND" ]; then
+	all_band_ind=${aline[0]:12:3}
+	all_band_ind=$(printf "%.0f" $all_band_ind)
+	all_band_arr[$all_band_ind]="${aline[4]}"
+	#check if the band is active
+	active_band="false"
+	band_ind=-1
+	while [ $active_band = "false" ] && [ $band_ind -lt $band_ind_count ]; do
+	    band_ind=$(($band_ind +1))
+	    if [ "${aline[4]}" = "${active_bands[$band_ind]}" ]; then
+		active_band="true"
+		# ${aline[4]} is the array element with the band name
+	    fi
+	done
+	if [ $active_band = "false" ]; then
+	    line_out="${line/.true./.false.}" # if the band was active it i set to not active
+	else
+	    line_out="${line/.false./.true.}" # if the band was not active it i set to active
+	fi
+	# write line to parameter file
+	printf '%s' \ "${line_out}" >> $param_out
+	if [ "$add_npipe" = "true" ]; then # we check the npipe version of the band
+	    solo_npipe_band="false"
+	    for i in ${!npipe_add_band[@]}; do
+		echo ="${aline[4]}"="${npipe_add_band[$i]}"=
+		if [ "${aline[4]}" = "${npipe_add_band[$i]}" ]; then
+		    echo ="${aline[4]}"="${npipe_add_band[$i]}"=
+		    npipe_version_arr[$all_band_ind]=${npipe_add_version[$i]}
+		    solo_npipe_band="true"
+		    break
+		fi
+	    done
+	    if [ "$solo_npipe_band" = "false" ]; then
+		if [ ${aline[4]:0:3} -lt 100 ];then
+		    npipe_version_arr[$all_band_ind]=$LFI_npipe
+		else
+		    npipe_version_arr[$all_band_ind]=$HFI_npipe
+		fi
+	    fi
+	else
+	    if  [ "${aline[4]:0:3}" = "LFI" ] || [ ${aline[4]:0:3} -lt 100 ];then                                                                                     
+                npipe_version_arr[$all_band_ind]=$LFI_npipe
+            else
+                npipe_version_arr[$all_band_ind]=$HFI_npipe
+            fi 
+	fi
+	continue
+    fi
+
+    #check if line is an 'band_label' line
+    if [ -n ${line_if[0]} ] && [ "${line_if[0]}" = "BAND_LABEL" ]; then
+	band_ind=${aline[0]:10:3} # get the band number (index)
+	band_ind=$(printf "%.0f" $band_ind)
+	echo "${aline[2]}" = "${all_band_arr[$band_ind]}"
+	if [ "${aline[2]}" = "${all_band_arr[$band_ind]}" ]; then # if band names matches, good!
+	    line_out="$line"
+	    printf '%s' \ "${line_out}" >> $param_out
+	    continue
+	else # if no match, ref. file is wrong, needs to be fixed.
+	    echo "ERROR: Band label of band $band_ind does not match band label from include_band line"
+	    echo "Exiting script \n"
+	    exit
+	fi
+    fi
+
+
+    #check if line is an 'band_mapfile' line
+    if [ -n ${line_if[0]} ] && [ "${line_if[0]}" = "BAND_MAPFILE" ]; then
+	band_ind=${aline[0]:12:3}
+	band_ind=$(printf "%.0f" $band_ind)
+	temp_line2="${aline[2]/npipe/ }"
+	temp_line2=(${temp_line2/_/ })
+	npipe_line_str="${npipe_version_arr[$band_ind]}"
+	npipe_old_str="${temp_line2[0]}"
+	line_out="${line/$npipe_old_str/$npipe_line_str}"
+        printf '%s' \ "${line_out}" >> $param_out
+	continue
+    fi
+
+    # Noise file, need to not include the smoothed RMS files
+    if [ -n ${line_if[0]} ] && [ "${line_if[0]}" = "BAND_NOISE_RMS" ]; then
+	if [ "${line_if[0]:18:6}" = "SMOOTH" ]; then # check of "smooth" file
+	    line_out="$line"
+	else
+	    band_ind=${aline[0]:14:3}
+	    band_ind=$(printf "%.0f" $band_ind)
+	    temp_line2="${aline[2]/npipe/ }"
+	    temp_line2=(${temp_line2/_/ })
+	    npipe_line_str="${npipe_version_arr[$band_ind]}"
+	    npipe_old_str="${temp_line2[0]}"
+	    line_out="${line/$npipe_old_str/$npipe_line_str}"
+        fi
+	printf '%s' \ "${line_out}" >> $param_out
+	continue
+    fi
+
+    # mask file (has to follow npipe version
+    if [ -n ${line_if[0]} ] && [ "${line_if[0]}" = "BAND_MASKFILE" ]; then
+	band_ind=${aline[0]:13:3}
+	band_ind=$(printf "%.0f" $band_ind)
+	temp_line2="${aline[2]/npipe/ }"
+	temp_line2=(${temp_line2/_/ })
+	npipe_line_str="${npipe_version_arr[$band_ind]}"
+	npipe_old_str="${temp_line2[0]}"
+	line_out="${line/$npipe_old_str/$npipe_line_str}"
+        printf '%s' \ "${line_out}" >> $param_out
+	continue
+    fi
+
+    # start with components. 
+    if [ -n ${line_if[0]} ] && [ "${line_if[0]}" = "INSTRUMENT_PARAM_FILE" ]; then
+	str_instr_param="instrument_params_npipe"$HFI_npipe"_krisjand_v"$run_version".dat"
+	line_out="${line/${aline[2]}/$str_instr_param}"
+	printf '%s' \ "${line_out}" >> $param_out
+	continue
+    fi
+
+    # We need to find out which comopnents are active (of CO)
+    # assume the others are given from input parameter file.
+    if [ -n ${line_if[0]} ] && [ "${line_if[0]}" = "INCLUDE_COMP" ]; then
+	all_comp_ind=${aline[0]:12:2}
+	all_comp_ind=$(printf "%.0f" $all_comp_ind)
+	all_comp_arr[$all_comp_ind]="${aline[4]}"
+	if [ "${aline[4]:0:2}" = "co" ]; then
+	    if [ "${aline[4]:2:2}" = "10" ]; then
+		co_active="false"
+		for i in ${!active_bands[@]}; do
+		    if [ "${active_bands[$i]:0:3}" = "100" ]; then
+			co_active="true"
+			break
+		    fi
+		done
+	    elif [ "${aline[4]:2:2}" = "21" ]; then
+		co_active="false"
+		for i in ${!active_bands[@]}; do
+		    if [ "${active_bands[$i]:0:3}" = "217" ]; then
+			co_active="true"
+			break
+		    fi
+		done
+	    elif [ "${aline[4]:2:2}" = "32" ]; then
+		co_active="false"
+		for i in ${!active_bands[@]}; do
+		    if [ "${active_bands[$i]:0:3}" = "353" ]; then
+			co_active="true"
+			break
+		    fi
+		done
+	    fi
+	    if [ "$co_active" = "true" ]; then
+		line_out="${line/.false./.true.}"
+	    else
+		line_out="${line/.true./.false.}"
+	    fi
+	else
+	    line_out="${line}"
+	fi
+	printf '%s' \ "${line_out}" >> $param_out
+	continue
+    fi
+
+    # We check that comp label are equal (as for bands)
+    if [ -n ${line_if[0]} ] && [ "${line_if[0]}" = "COMP_LABEL" ]; then
+	comp_ind=${aline[0]:10:2} # get the component number (index)
+	comp_ind=$(printf "%.0f" $comp_ind)
+	if [ "${aline[2]}" = "${all_comp_arr[$comp_ind]}" ]; then # if compoment names matches, good!
+	    line_out="$line"
+	    printf '%s' \ "${line_out}" >> $param_out
+	    continue
+	else # if no match, ref. file is wrong, needs to be fixed.
+	    echo "ERROR: Component label of component $comp_ind does not match component label from include_comp line"
+	    echo "Exiting script \n"
+	    exit
+	fi
+    fi
+
+    if [ -n ${line_if[0]} ] && [ "${line_if[0]}" = "COMP_INPUT_AMP_MAP" ]; then
+	comp_ind=${aline[0]:18:2} # get the component number (index)
+	comp_ind=$(printf "%.0f" $comp_ind)
+	if [ "${all_comp_arr[$comp_ind]:0:2}" = "co" ]; then
+	    out_init_amp="init_"${all_comp_arr[$comp_ind]}"_npipe"$HFI_npipe"_trygve_n2048_60arcmin_v"$run_version".fits"
+	elif [ "${all_comp_arr[$comp_ind]}" = "cmb" ]; then
+	    out_init_amp="init_cmb_npipe"$HFI_npipe"_trygve_n2048_60arcmin_v"$run_version".fits"
+	elif [ "${all_comp_arr[$comp_ind]}" = "synch" ]; then
+	    out_init_amp="none"
+	elif [ "${all_comp_arr[$comp_ind]}" = "dust" ]; then
+	    out_init_amp="init_dust_npipe"$HFI_npipe"_trygve_n2048_60arcmin_v"$run_version".fits"
+	fi
+	line_out="${line/${aline[2]}/$out_init_amp}"
+	printf '%s' \ "${line_out}" >> $param_out
+	continue
+    fi
+
+    if [ -n ${line_if[0]} ] && [ "${line_if[0]}" = "COMP_INPUT_BETA_MAP" ]; then
+	comp_ind=${aline[0]:19:2} # get the component number (index)
+	comp_ind=$(printf "%.0f" $comp_ind)
+	out_init_beta="init_"${all_comp_arr[$comp_ind]}"_beta_npipe"$HFI_npipe"_trygve_n2048_60arcmin_v"$run_version".fits"
+	line_out="${line/${aline[2]}/$out_init_beta}"
+	printf '%s' \ "${line_out}" >> $param_out
+	continue
+    fi
+    
+    if [ -n ${line_if[0]} ] && [ "${line_if[0]}" = "COMP_INPUT_T_MAP" ]; then # only dust_T
+	out_init_beta="init_dust_T_npipe"$HFI_npipe"_trygve_n2048_60arcmin_v"$run_version".fits"
+	line_out="${line/${aline[2]}/$out_init_beta}"
+	printf '%s' \ "${line_out}" >> $param_out
+	continue
+    fi
+
+    # CO line templates
+    if [ -n ${line_if[0]} ] && [ "${line_if[0]}" = "COMP_LINE_TEMPLATE" ]; then
+	comp_ind=${aline[0]:18:2} # get the component number (index)
+	comp_ind=$(printf "%.0f" $comp_ind)
+	out_init_amp=${all_comp_arr[$comp_ind]}"_line_template_npipe"$HFI_npipe"_krisjand_v"$run_version".dat"
+	line_out="${line/${aline[2]}/$out_init_amp}"
+	printf '%s' \ "${line_out}" >> $param_out
+	continue
+    fi
+
+    # CO ref bands, check if ref is active!
+    if [ -n ${line_if[0]} ] && [ "${line_if[0]}" = "COMP_BAND_REF" ]; then
+	comp_ref_band="${aline[2]}"
+	ref_active="false"
+	for i in ${!active_bands[@]}; do
+	    if [ "$comp_ref_band" = "${active_bands[$i]}" ]; then
+		ref_active="true"
+		break
+	    fi
+	done
+	if [ "$ref_active" = "true" ]; then # if ref. band is active, good!
+	    line_out="$line"
+	    printf '%s' \ "${line_out}" >> $param_out
+	    continue
+	else # if no active ref. band, needs to be fixed.
+	    echo "ERROR: CO reference band $comp_ref_band is not active (not in input md-file)"
+	    echo "Exiting script \n"
+	    exit
+	fi
+    fi
+
+    # Mono/dipole def
+    if [ -n ${line_if[0]} ] && [ "${line_if[0]}" = "COMP_MD_DEFINITION_FILE" ]; then
+	out_init_amp="'data_npipe/md_npipe"$HFI_npipe"_krisjand_v"$run_version".dat'"
+	line_out="${line/${aline[2]}/$out_init_amp}"
+	printf '%s' \ "${line_out}" >> $param_out
+	continue
+    fi
+
+    printf '%s' \ "${line}" >> $param_out # If no keyword is found, the line is written as is.
+done < $param_file

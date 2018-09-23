@@ -1,0 +1,22 @@
+#!/bin/bash
+map_editor=/mn/stornext/u3/hke/owl/quiet_svn/oslo/src/f90/map_editor/map_editor
+mask="/uio/hume/student-u68/trygvels/master/cdata/like/npipe5v21/data/commander_dx12_mask_n0064_likelihood_v2.fits"
+
+if [ $# -lt 1 ]; then
+  echo "gimmedipole [sample number]"
+  exit
+fi
+
+for n in $@; do
+  num=$(printf "%05d\n" $n)
+  $map_editor subtract_mono_dipole cmb_c0001_k$num.fits $mask cmb_nodip_k$num.fits >> temp.txt                                
+
+  cmb_line=$(grep -F "Coefficients" temp.txt)
+  cmb_line="${cmb_line/'Coefficients ='/}"
+  cmb_coeffs=($cmb_line)
+  cmb_amp=$(bc <<< "sqrt(${cmb_coeffs[1]}^2 + ${cmb_coeffs[2]}^2 + ${cmb_coeffs[3]}^2)")
+  echo "Dipole amplitude (uK):" $cmb_amp 
+  echo "Dipole amplitude (uK):" $cmb_amp ", sample: " $num >> dipole_amp.txt
+  rm temp.txt
+
+done

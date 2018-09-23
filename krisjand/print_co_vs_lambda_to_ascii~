@@ -1,0 +1,52 @@
+#!/bin/bash
+
+mask_dir=/mn/stornext/u3/krisjand/stornext/npipe_highres/data_npipe
+me=/mn/stornext/u3/krisjand/quiet_svn/oslo/src/f90/map_editor/map_editor
+scatter_dir=/mn/stornext/u3/krisjand/stornext/npipe_lowres/co_scatter
+freqs=("100" "217" "353")
+    echo ""
+    echo "Printing co-files to ascii for comparison"
+
+if [ $# -ne 3 ]; then
+    echo ""
+    echo "Syntax: print...ascii [sample] [run version] [chains dir]"
+    echo ""
+    exit
+fi
+
+sample=$(printf "%05d" $1)
+run=$2
+if [ "${3:$((${#3}-1)):1}" = "/" ]; then
+    co_dir="${3:0:$((${#3}-1))}"
+else
+    co_dir="${3}"
+fi
+
+if [ -d $co_dir ]; then
+    echo ""
+else
+    echo "WARNING: directory $co_dir does not exist!"
+    echo ""
+    exit
+fi
+
+co_lambda=$scatter_dir/lambda_wco_dht2001_40arcmin_n0064.fits
+
+for ((i=0; i<${#freqs[@]}; i++)) ; do
+    freq=${freqs[$i]} #Frequency
+    co_file=co-${freq}_c0001_k${sample}.fits
+    if [[ $co_dir/$co_file = *\** ]]; then #Check if contains wildcard (Map does not exist)
+        echo "WARNING: " $file " does not exist!"
+        continue
+    elif [ -r $co_dir/$co_file ]; then
+	echo "Printing $co_file to ascii"
+    else
+	echo "WARNING: " $file " does not exist!"
+        continue
+    fi
+
+    $me print_two_maps_to_ascii $scatter_dir/lambda_wco_dht2001_40arcmin_n0064.fits $co_dir/$co_file $mask_dir/mask_fullsky_n0064.fits $scatter_dir/scatter_co${freq}_lambda_${run}_s${sample}.dat
+
+    echo "scatter_co${freq}_lambda_${run}_s${sample}.dat"
+    echo ""
+done
