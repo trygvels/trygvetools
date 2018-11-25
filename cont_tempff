@@ -1,0 +1,165 @@
+#!/bin/bash
+
+base=$1 #Chains catalogue
+inparam=$2 #Apply to this parameter file
+cont=$3 #Continue from this sample number
+tag=$4
+cont=$(printf "%05d\n" $cont)
+echo $base $inparam $cont $tag
+if [ $# -ne 4 ]; then
+  echo "cont [chains catalogue] [Apply to parameter file] [Which sample to cont from] [tag for files]"
+  echo " "
+  echo "This script updates:"
+  echo "temp_amp_init"
+  echo "gain_init"
+  echo "bp_init"
+  echo "dust_beta_init"
+  echo "dust_Td_init"
+  echo "dust_init"
+  echo "synch_beta_init"
+  echo "synch_init"
+  echo "ff_EM_init"
+  echo "ff_T_e_init"
+  echo "ame1_init"
+  echo "ame1_nup_init"
+
+  echo 'Sets Initialization mode of all CO components to "input map"'
+  echo "Updates CO-100 initial amplitude map to CO-100 referance (100-1a)"
+  echo "With index maps: 100-1b, 100-2a, 100-2b, 100-3a, 100-3b, 100-4a, 100-4b"
+  echo "Updates CO-217 initial amplitude map to CO-217 referance (217-2)"
+  echo "With index maps: 217-3, 217-5a, 217-5b, 217-6, 217-7a, 217-7b, 217-8"
+  echo "Updates CO-353 initial amplitude map to CO-353 referance (353-3)"
+  echo "With index maps: 353-1, 353-2, 353-4, 353-5, 353-6"
+
+  echo "And replaces CMB-init"
+  exit
+fi
+
+
+cp "$base"/temp_amp_c0001_k"$cont".dat data/temp_amp_init_"$tag".dat
+sed -i "s,^\(TEMPLATE_AMP_INPUT[ ]*= \).*,\1'data/temp_amp_init_"$tag".dat',g" $inparam #Mono_dipole
+
+cp "$base"/gain_no0001.dat data/gain_init_"$tag".dat
+sed -i "s,^\(GAIN_INIT[ ]*= \).*,\1'data/gain_init_"$tag".dat',g" $inparam #Gain init
+
+cp "$base"/bp_no0001.dat data/bp_init_"$tag".dat
+sed -i "s,^\(BANDPASS_INIT[ ]*= \).*,\1'data/bp_init_"$tag".dat',g" $inparam #Bandpass init
+
+cp "$base"/dust_beta_c0001_k"$cont".fits data/dust_beta_init_"$tag".fits
+sed -i "s,^\(INIT_INDEX_MAP01_01[ ]*= \).*,\1'data/dust_beta_init_"$tag".fits',g" $inparam #Dust beta
+
+cp "$base"/dust_Td_c0001_k"$cont".fits data/dust_Td_init_"$tag".fits
+sed -i "s,^\(INIT_INDEX_MAP01_02[ ]*= \).*,\1'data/dust_Td_init_"$tag".fits',g" $inparam #Dust Td
+
+cp "$base"/dust_c0001_k"$cont".fits data/dust_init_"$tag".fits
+sed -i "s,^\(INITIAL_AMPLITUDE_MAP01[ ]*= \).*,\1'data/dust_init_"$tag".fits',g" $inparam #Dust
+
+
+# CO 100 ##################
+sed -i "s,^\(INITIALIZATION_MODE03[ ]*= \).*,\1\'input_map\',g" $inparam #CO
+
+cp "$base"/co-100_c0001_k"$cont".fits data/co-100_init_"$tag".fits
+sed -i "s,^\(INITIAL_AMPLITUDE_MAP03[ ]*= \).*,\1'data/co-100_init_"$tag".fits',g" $inparam #CO
+
+cp "$base"/co-100_100-1b_c0001_k"$cont".fits data/co-100-1b_init_"$tag".fits
+sed -i "s,^\(INIT_INDEX_MAP03_01[ ]*= \).*,\1'data/co-100-1b_init_"$tag".fits',g" $inparam #co 100
+
+cp "$base"/co-100_100-2a_c0001_k"$cont".fits data/co-100-2a_init_"$tag".fits
+sed -i "s,^\(INIT_INDEX_MAP03_02[ ]*= \).*,\1'data/co-100-2a_init_"$tag".fits',g" $inparam #co 100
+
+cp "$base"/co-100_100-2b_c0001_k"$cont".fits data/co-100-2b_init_"$tag".fits
+sed -i "s,^\(INIT_INDEX_MAP03_03[ ]*= \).*,\1'data/co-100-2b_init_"$tag".fits',g" $inparam #co 100
+
+cp "$base"/co-100_100-3a_c0001_k"$cont".fits data/co-100-3a_init_"$tag".fits
+sed -i "s,^\(INIT_INDEX_MAP03_04[ ]*= \).*,\1'data/co-100-3a_init_"$tag".fits',g" $inparam #co 100
+
+cp "$base"/co-100_100-3b_c0001_k"$cont".fits data/co-100-3b_init_"$tag".fits
+sed -i "s,^\(INIT_INDEX_MAP03_05[ ]*= \).*,\1'data/co-100-3b_init_"$tag".fits',g" $inparam #co 100
+
+cp "$base"/co-100_100-4a_c0001_k"$cont".fits data/co-100-4a_init_"$tag".fits
+sed -i "s,^\(INIT_INDEX_MAP03_06[ ]*= \).*,\1'data/co-100-4a_init_"$tag".fits',g" $inparam #co 100
+
+cp "$base"/co-100_100-4b_c0001_k"$cont".fits data/co-100-4b_init_"$tag".fits
+sed -i "s,^\(INIT_INDEX_MAP03_07[ ]*= \).*,\1'data/co-100-4b_init_"$tag".fits',g" $inparam #co 100
+
+# CO 217 ############
+sed -i "s,^\(INITIALIZATION_MODE04[ ]*= \).*,\1\'input_map\',g" $inparam #CO
+
+cp "$base"/co-217_c0001_k"$cont".fits data/co-217_init_"$tag".fits
+sed -i "s,^\(INITIAL_AMPLITUDE_MAP04[ ]*= \).*,\1'data/co-217_init_"$tag".fits',g" $inparam #CO
+
+cp "$base"/co-217_217-3_c0001_k"$cont".fits data/co-217-3_init_"$tag".fits
+sed -i "s,^\(INIT_INDEX_MAP04_01[ ]*= \).*,\1'data/co-217-3_init_"$tag".fits',g" $inparam #co 217
+
+cp "$base"/co-217_217-5a_c0001_k"$cont".fits data/co-217-5a_init_"$tag".fits
+sed -i "s,^\(INIT_INDEX_MAP04_02[ ]*= \).*,\1'data/co-217-5a_init_"$tag".fits',g" $inparam #co 217
+
+cp "$base"/co-217_217-5b_c0001_k"$cont".fits data/co-217-5b_init_"$tag".fits
+sed -i "s,^\(INIT_INDEX_MAP04_03[ ]*= \).*,\1'data/co-217-5b_init_"$tag".fits',g" $inparam #co 217
+
+cp "$base"/co-217_217-6_c0001_k"$cont".fits data/co-217-6_init_"$tag".fits
+sed -i "s,^\(INIT_INDEX_MAP04_04[ ]*= \).*,\1'data/co-217-6_init_"$tag".fits',g" $inparam #co 217
+
+cp "$base"/co-217_217-7a_c0001_k"$cont".fits data/co-217-7a_init_"$tag".fits
+sed -i "s,^\(INIT_INDEX_MAP04_05[ ]*= \).*,\1'data/co-217-7a_init_"$tag".fits',g" $inparam #co 217
+
+cp "$base"/co-217_217-7b_c0001_k"$cont".fits data/co-217-7b_init_"$tag".fits
+sed -i "s,^\(INIT_INDEX_MAP04_06[ ]*= \).*,\1'data/co-217-7b_init_"$tag".fits',g" $inparam #co 217
+
+cp "$base"/co-217_217-8_c0001_k"$cont".fits data/co-217-8_init_"$tag".fits
+sed -i "s,^\(INIT_INDEX_MAP04_07[ ]*= \).*,\1'data/co-217-8_init_"$tag".fits',g" $inparam #co 217
+
+# CO 353 ##########
+
+sed -i "s,^\(INITIALIZATION_MODE05[ ]*= \).*,\1\'input_map\',g" $inparam #CO
+
+cp "$base"/co-353_c0001_k"$cont".fits data/co-353_init_"$tag".fits
+sed -i "s,^\(INITIAL_AMPLITUDE_MAP05[ ]*= \).*,\1'data/co-353_init_"$tag".fits',g" $inparam #CO
+
+cp "$base"/co-353_353-1_c0001_k"$cont".fits data/co-353-1_init_"$tag".fits
+sed -i "s,^\(INIT_INDEX_MAP05_01[ ]*= \).*,\1'data/co-353-1_init_"$tag".fits',g" $inparam #co 353
+
+cp "$base"/co-353_353-2_c0001_k"$cont".fits data/co-353-2_init_"$tag".fits
+sed -i "s,^\(INIT_INDEX_MAP05_02[ ]*= \).*,\1'data/co-353-2_init_"$tag".fits',g" $inparam #co 353
+
+cp "$base"/co-353_353-4_c0001_k"$cont".fits data/co-353-4_init_"$tag".fits
+sed -i "s,^\(INIT_INDEX_MAP05_03[ ]*= \).*,\1'data/co-353-4_init_"$tag".fits',g" $inparam #co 353
+
+cp "$base"/co-353_353-5_c0001_k"$cont".fits data/co-353-5_init_"$tag".fits
+sed -i "s,^\(INIT_INDEX_MAP05_04[ ]*= \).*,\1'data/co-353-5_init_"$tag".fits',g" $inparam #co 353
+
+cp "$base"/co-353_353-6_c0001_k"$cont".fits data/co-353-6_init_"$tag".fits
+sed -i "s,^\(INIT_INDEX_MAP05_05[ ]*= \).*,\1'data/co-353-6_init_"$tag".fits',g" $inparam #co 353
+
+
+cp "$base"/cmb_c0001_k"$cont".fits data/cmb_init_"$tag".fits
+sed -i "s,^\(INITIAL_AMPLITUDE_MAP06[ ]*= \).*,\1'data/cmb_init_"$tag".fits',g" $inparam #CMB
+
+
+cp "$base"/ame1_c0001_k"$cont".fits data/ame1_init_"$tag".fits
+sed -i "s,^\(INITIAL_AMPLITUDE_MAP02[ ]*= \).*,\1'data/ame1_init_"$tag".fits',g" $inparam #ame
+
+cp "$base"/ame1_nup_c0001_k"$cont".fits data/ame1_nup_init_"$tag".fits
+sed -i "s,^\(INIT_INDEX_MAP02_01[ ]*= \).*,\1'data/ame1_nup_init_"$tag".fits',g" $inparam #ame
+
+cp "$base"/ame1_alpha_c0001_k"$cont".fits data/ame1_alpha_init_"$tag".fits
+sed -i "s,^\(INIT_INDEX_MAP02_02[ ]*= \).*,\1'data/ame1_alpha_init_"$tag".fits',g" $inparam #ame
+
+
+cp "$base"/hcn_c0001_k"$cont".fits data/hcn_init_"$tag".fits
+sed -i "s,^\(INITIAL_AMPLITUDE_MAP07[ ]*= \).*,\1'data/hcn_init_"$tag".fits',g" $inparam #hcn
+
+cp "$base"/hcn_W2_c0001_k"$cont".fits data/hcn-W2_init_"$tag".fits
+sed -i "s,^\(INIT_INDEX_MAP07_01[ ]*= \).*,\1'data/hcn-W2_init_"$tag".fits',g" $inparam #hcn
+
+cp "$base"/hcn_W3_c0001_k"$cont".fits data/hcn-W3_init_"$tag".fits
+sed -i "s,^\(INIT_INDEX_MAP07_02[ ]*= \).*,\1'data/hcn-W3_init_"$tag".fits',g" $inparam #hcn
+
+cp "$base"/hcn_W4_c0001_k"$cont".fits data/hcn-W4_init_"$tag".fits
+sed -i "s,^\(INIT_INDEX_MAP07_03[ ]*= \).*,\1'data/hcn-W4_init_"$tag".fits',g" $inparam #hcn
+
+cp "$base"/synch_beta_c0001_k"$cont".fits data/synch_beta_init_"$tag".fits
+sed -i "s,^\(INIT_INDEX_MAP08_01[ ]*= \).*,\1'data/synch_beta_init_"$tag".fits',g" $inparam #synch beta
+
+cp "$base"/synch_c0001_k"$cont".fits data/synch_init_"$tag".fits
+sed -i "s,^\(INITIAL_AMPLITUDE_MAP08[ ]*= \).*,\1'data/synch_init_"$tag".fits',g" $inparam #synch

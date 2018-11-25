@@ -57,9 +57,9 @@ nside_str=$(printf "%04d" $nside)
 #          These must/can be changed between users        #
 #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
 # mask_fullsky map for the given nside
-mf=/uio/hume/student-u68/trygvels/master/cdata/like/npipe5v21/data/mask_fullsky_n${nside_str}.fits
+mf=/mn/stornext/u3/trygvels/compsep/cdata/like/npipe5v21/data/mask_fullsky_n${nside_str}.fits
 #outout directory
-output_dir=/uio/hume/student-u68/trygvels/master/cdata/like/npipe5v21/data/hires
+output_dir=/mn/stornext/u3/trygvels/compsep/cdata/like/npipe6/data/hires
 # map_editor
 me=/mn/stornext/u3/hke/owl/quiet_svn/oslo/src/f90/map_editor/map_editor
 me=/mn/stornext/u3/krisjand/quiet_svn/oslo/src/f90/map_editor/map_editor
@@ -353,15 +353,15 @@ maps=(
 )
 
 outmaps=(
-"init_dust_T_"$npipe"_n2048_"$arcmins"arcmin_"$run".fits"
-"init_dust_beta_"$npipe"_n2048_"$arcmins"arcmin_"$run".fits"
+"init_dust_T_"$npipe"_n4096_"$arcmins"arcmin_"$run".fits"
+"init_dust_beta_"$npipe"_n4096_"$arcmins"arcmin_"$run".fits"
 "init_synch_beta_"$npipe"_n2048_"$arcmins"arcmin_"$run".fits"
 "init_synch_"$npipe"_n2048_"$arcmins"arcmin_"$run".fits"
-"init_dust_"$npipe"_n2048_"$arcmins"arcmin_"$run".fits"
-"init_cmb_"$npipe"_n2048_"$arcmins"arcmin_"$run".fits"
+"init_dust_"$npipe"_n4096_"$arcmins"arcmin_"$run".fits"
+"init_cmb_"$npipe"_n4096_"$arcmins"arcmin_"$run".fits"
 "init_co10_"$npipe"_n2048_"$arcmins"arcmin_"$run".fits"
-"init_co21_"$npipe"_n2048_"$arcmins"arcmin_"$run".fits"
-"init_co32_"$npipe"_n2048_"$arcmins"arcmin_"$run".fits"
+"init_co21_"$npipe"_n4096_"$arcmins"arcmin_"$run".fits"
+"init_co32_"$npipe"_n4096_"$arcmins"arcmin_"$run".fits"
 "init_hcn_"$npipe"_n2048_"$arcmins"arcmin_"$run".fits"               
 "init_ff_"$npipe"_n2048_"$arcmins"arcmin_"$run".fits"
 "init_ff_T_e_"$npipe"_n2048_"$arcmins"arcmin_"$run".fits"
@@ -371,10 +371,17 @@ outmaps=(
 
 # ud_grade so one may use higher l_max
 # save to a temporary file which is later removed so the inputs are not overwritten
+
 for i in ${!maps[@]}; do
-    $me ud_grade $input_dir/${maps[$i]} 2048 $output_dir/${maps[$i]/.fits/_n2048_udgrade.fits}
-    $me smooth g2g $output_dir/${maps[$i]/.fits/_n2048_udgrade.fits} 0 $lmax 2048 0. $arcmins $output_dir/${outmaps[$i]}
-    rm $output_dir/${maps[$i]/.fits/_n2048_udgrade.fits}
+
+    if [ "${maps[$i]}" = "cmb_c0001_k"$num".fits" ] || [ "${maps[$i]}" = "co-217_c0001_k"$num".fits" ] || [ "${maps[$i]}" = "co-353_c0001_k"$num".fits" ] || [ "${maps[$i]}" = "dust_c0001_k"$num".fits" ] || [ "${maps[$i]}" = "dust_Td_c0001_k"$num".fits" ] || [ "${maps[$i]}" = "dust_beta_c0001_k"$num".fits" ]; then
+	nside=4096
+    else 
+	nside=2048
+    fi
+    $me ud_grade $input_dir/${maps[$i]} $nside $output_dir/${maps[$i]/.fits/_n$nside_udgrade.fits}
+    $me smooth g2g $output_dir/${maps[$i]/.fits/_n$nside_udgrade.fits} 0 $lmax $nside 0. $arcmins $output_dir/${outmaps[$i]}
+    rm $output_dir/${maps[$i]/.fits/_n$nside_udgrade.fits}
     
     if [ "${maps[$i]}" = "co-100_c0001_k"$num".fits" ]; then
 	$me scale $output_dir/${outmaps[$i]} $output_dir/${outmaps[$i]} 11.06

@@ -15,15 +15,15 @@ for n in $@; do
   echo "_____ Plotting sample $n _____"
   num=$(printf "%05d\n" $n)
   echo "---- Plotting CMB ----"
-  
-  $map_editor subtract_mono_dipole cmb_c0001_k$num.fits $mask cmb_nodip_k$num.fits >> temp.txt                                
+
+  $map_editor subtract_mono_dipole cmb_c0001_k$num.fits $mask cmb_nodip_k$num.fits >> temp.txt
   map2png cmb_nodip_k$num.fits -bar -range 250
   map2png cmb_c0001_k$num.fits cmb_k$num.png -bar -range 250
   cmb_line=$(grep -F "Coefficients" temp.txt)
   cmb_line="${cmb_line/'Coefficients ='/}"
   cmb_coeffs=($cmb_line)
   cmb_amp=$(bc <<< "sqrt(${cmb_coeffs[1]}^2 + ${cmb_coeffs[2]}^2 + ${cmb_coeffs[3]}^2)")
-  echo "Dipole amplitude (uK):" $cmb_amp 
+  echo "Dipole amplitude (uK):" $cmb_amp
   echo "Dipole amplitude (uK):" $cmb_amp ", sample: " $num >> dipole_amp.txt
   rm temp.txt
   #map2png cmb_Cl_c0001_k$num.fits -bar -range 250
@@ -31,7 +31,7 @@ for n in $@; do
 
   echo "---- Plotting amplitudes ----"
   map2png dust_c0001_k$num.fits comp_dust_k$num.png -bar -max 1000
-  map2png synch_c0001_k$num.fits comp_synch_k$num.png -bar -min 0 -max 1e8 #5e1
+  map2png synch_c0001_k$num.fits comp_synch_k$num.png -bar -min 0 -max 5e1
   map2png ame1_c0001_k$num.fits comp_ame1_k$num.png -bar -max 300
   map2png ame2_c0001_k$num.fits comp_ame2_k$num.png -bar -max 300
   map2png free-free_c0001_k$num.fits comp_ff_k$num.png -bar -min 0 -max 2
@@ -42,7 +42,7 @@ for n in $@; do
   map2png co_c0001_k$num.fits comp_co_k$num.png -bar -min 0 -max 2
   map2png co-100_c0001_k$num.fits comp_co-100_k$num.png -bar -max 4 -min 0
   map2png co-217_c0001_k$num.fits comp_co-217_k$num.png -bar -max 2 -min 0
-  map2png co-353_c0001_k$num.fits comp_co-353_k$num.png -bar -max 0.5 -min 0
+  map2png co-353_c0001_k$num.fits comp_co-353_k$num.png -bar -max 1 -min 0
   #map2png co10_c0001_k$num.fits -bar -max 2 -min 0
   #map2png co21_c0001_k$num.fits -bar -max 2 -min 0
   #map2png co32_c0001_k$num.fits -bar -max 2 -min 0
@@ -57,7 +57,7 @@ for n in $@; do
   map2png ame2_nup_c0001_k$num.fits comp_ame2_nup_k$num.png -bar -min 15 -max 40
   map2png ame1_alpha_c0001_k$num.fits comp_ame1_alpha_k$num.png -bar -range 1
 
-  map2png free-free_beta_c0001_k$num.fits comp_ff_beta_k$num.png -bar 
+  map2png free-free_beta_c0001_k$num.fits comp_ff_beta_k$num.png -bar
   map2png ff_EM_c0001_k$num.fits comp_ff_EM_k$num.png -bar -min 0 -max 100
   map2png ff_T_e_c0001_k$num.fits comp_ff_T_e_k$num.png -bar -min 5000 -max 8000
 
@@ -68,7 +68,7 @@ for n in $@; do
   COUNTER=0
   for ((i=0; i<${#freqs[@]}; i++)) ; do
     freq=${freqs[$i]} #Frequency
-    	  
+
     for file in res*${freq}*_c01_k$num.fits; do
 
       if [[ $file = *\** ]]; then #Check if contains wildcard (Map does not exist)
@@ -81,7 +81,7 @@ for n in $@; do
       elif [ $freq == 857 ]; then
 	map2png -bar -range 10000 $file
       elif [ "$freq" = "Haslam" ] ; then
-          map2png -bar -range 1e4 $file
+          map2png -bar -range 1e5 $file
       elif [ $freq == 1250 ]; then
 	lol=${file/residual_/residual_9-}
 	map2png $file ${lol/fits/png} -bar -range 2

@@ -15,7 +15,8 @@ mkdir $chains
 
 #Find number of bands in parameter file
 n=$(awk -F'[=[:blank:]#]+' '$1 == "NUMBAND" {print $2}' $param)
-
+lol=$(awk -F'[=[:blank:]#]+' '$1 == "NUM_PROC_PER_BAND" {print $2}' $param)
+processors=$(( $n * $lol ))
 #Copy param to chains
 cp $param $chains
 
@@ -24,6 +25,7 @@ echo "--------------------------------------------"
 echo "PARAM:    " $param
 echo "DIR:      " $chains
 echo "NUMBANDS: " $n
+echo "NUMPROCS: " $processors
 echo "--------------------------------------------"
 
 #Writing description of run to file and copying to chains dir
@@ -33,12 +35,11 @@ if [ ! -f $param ]; then
 else
     sed -i "/$param/d" commander_runs.txt # Removing duplicate run descriptions
 fi
-echo $param " "  $description >> commander_runs.txt
+
+echo $param "   "  $description | cat - commander_runs.txt > temp && mv temp commander_runs.txt
+#echo $param " "  $description >> commander_runs.txt
 cp commander_runs.txt $chains
 
+
 #Go commander
-mpirun -n $n /mn/stornext/u3/trygvels/compsep/Commander/commander1/src/commander/commander $param 2>&1 | tee $chains/slurm.txt
-
-
-
-
+mpirun -n $processors /mn/stornext/u3/trygvels/compsep/Commander/commander1/src/commander/commander $param 2>&1 | tee $chains/slurm.txt

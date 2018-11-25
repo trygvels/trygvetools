@@ -30,7 +30,7 @@ if [[ $doit ]]; then
     exit
 fi
 #Go commander
-mpirun -n $n /uio/hume/student-u68/trygvels/master/Commander/src/commander/commander $param 2>&1 | tee $chains/slurm.txt
+mpirun -n $n /mn/stornext/u3/trygvels/compsep/Commander/src/commander/commander $param 2>&1 | tee $chains/slurm.txt
 
 
 
